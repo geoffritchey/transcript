@@ -169,7 +169,7 @@ public class GenerateTranscript implements CommandLineRunner {
 		                                        .append(StyledText.builder()
 		                                        		.fontSize(8f)
 		                    							.font(PDType1Font.TIMES_ROMAN)
-		                                        		.text(graduationDegree==null?"":graduationDegree + (graduationDate == null?"":df.format(graduationDate)))
+		                                        		.text((graduationDegree==null)?"":graduationDegree + (graduationDate == null?"":df.format(graduationDate)))
 		                                		.build()).build()).build())
 								.build()
 								)
