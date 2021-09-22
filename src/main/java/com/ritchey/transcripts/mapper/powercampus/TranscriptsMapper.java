@@ -1,5 +1,6 @@
 package com.ritchey.transcripts.mapper.powercampus;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.ibatis.annotations.Mapper;
@@ -25,7 +26,7 @@ public interface TranscriptsMapper {
     		+ "         TRANSCRIPTDEGREE.FORMAL_TITLE ASC ")
     Map selectProgramDegree(String campusId, String sequence);
     
-    @Select("SELECT top 1 TRANSCRIPTDETAIL.EVENT_ID, TRANSCRIPTDETAIL.ACADEMIC_YEAR, TRANSCRIPTDETAIL.ACADEMIC_TERM, TRANSCRIPTDETAIL.PEOPLE_CODE_ID, TRANSCRIPTDETAIL.EVENT_MED_NAME, TRANSCRIPTDETAIL.FINAL_GRADE,\r\n"
+    @Select("SELECT TRANSCRIPTDETAIL.EVENT_ID, TRANSCRIPTDETAIL.ACADEMIC_YEAR, TRANSCRIPTDETAIL.ACADEMIC_TERM, TRANSCRIPTDETAIL.PEOPLE_CODE_ID, TRANSCRIPTDETAIL.EVENT_MED_NAME, TRANSCRIPTDETAIL.FINAL_GRADE,\r\n"
     		+ "           TRANSCRIPTDETAIL.FINAL_QUALITY_PNTS, TRANSCRIPTDETAIL.CONTACT_HOURS, TRANSCRIPTDETAIL.PEOPLE_ID, TRANSCRIPTDETAIL.ACADEMIC_SESSION, TRANSCRIPTDETAIL.EVENT_SUB_TYPE, TRANSCRIPTDETAIL.SECTION, TRANSCRIPTDETAIL.CREDIT_GRADE,\r\n"
     		+ "           TRANSCRIPTDETAIL.REPEATED, TRANSCRIPTDETAIL.ORG_CODE_ID, vwstrangpat.ATTEMPTED_CREDITS, vwstrangpat.EARNED_CREDITS, VWSTRANGPAT.GPA, vwstrangpat.GPA_CREDITS,\r\n"
     		+ "           vwstrangpat.QUALITY_POINTS, vwstrangpat.TOTAL_CREDITS, vwstrangpao.ATTEMPTED_CREDITS, vwstrangpao.EARNED_CREDITS, vwstrangpao.GPA_CREDITS, vwstrangpao.QUALITY_POINTS, VWSTRANGPAO.GPA,\r\n"
@@ -72,7 +73,7 @@ public interface TranscriptsMapper {
     		+ "  AND (TRANSCRIPTDETAIL.ABT_JOIN <> 'Y' + 'N') \r\n"
     		+ "  AND (TRANSCRIPTDETAIL.ABT_JOIN <> 'UNOFFICIAL') \r\n"
     		+ "  AND (TRANSCRIPTDETAIL.FINAL_GRADE <> ''  OR (#{getIfFinalGradeBlank} = 'Y' AND TRANSCRIPTDETAIL.FINAL_GRADE = '')) ")
-    Map selectDetails(String campusId, String sequence, String getIfFinalGradeBlank); 
+    List<Map> selectDetails(String campusId, String sequence, String getIfFinalGradeBlank); 
     
     @Select("SELECT GPA\r\n"
     		+ "FROM TRANSCRIPTGPA,\r\n"
@@ -113,4 +114,66 @@ public interface TranscriptsMapper {
     		+ "ORDER BY GRADUATION_DATE DESC,\r\n"
     		+ "         CODE_DEGREE.SHORT_DESC ASC")
     Map selectGraduationDate(String campusId, String sequence);
+    
+    
+    @Select("SELECT o.ORG_NAME_1,\r\n"
+    		+ "       cd.SHORT_DESC\r\n"
+    		+ "FROM dbo.EDUCATION e\r\n"
+    		+ "INNER JOIN dbo.ORGANIZATION o ON e.ORG_CODE_ID =o.ORG_CODE_ID\r\n"
+    		+ "LEFT OUTER JOIN dbo.CODE_DEGREE cd ON e.DEGREE =cd.CODE_VALUE\r\n"
+    		+ "INNER JOIN dbo.TRANSEDUCATION t ON e.ORG_CODE_ID =t.ORG_CODE_ID\r\n"
+    		+ "AND e.PEOPLE_CODE_ID =t.PEOPLE_CODE_ID\r\n"
+    		+ "AND e.DEGREE =t.DEGREE\r\n"
+    		+ "AND e.CURRICULUM =t.CURRICULUM\r\n"
+    		+ "WHERE t.PEOPLE_CODE_ID =#{campusId}\r\n"
+    		+ "  AND t.TRANSCRIPT_SEQ =#{sequence}\r\n"
+    		+ "  AND t.TRANSCRIPT_PRINT ='Y'\r\n"
+    		+ "  AND e.END_DATE IS NOT NULL\r\n"
+    		+ "ORDER BY e.END_DATE DESC")
+    Map selectDegree(String campusId, String sequence);
+    
+    @Select("SELECT TRANSCRIPT_SEQ "
+    		+ "FROM TRANSCRIPTDEGREE "
+    		+ "WHERE PEOPLE_CODE_ID = #{campusId} "
+    		+ "GROUP BY TRANSCRIPT_SEQ")
+    List<Map> selectTranscriptSequences(String campusId);
+    
+    @Select("SELECT COALESCE (CODE_TEST.SHORT_DESC, TESTSCORES.TEST_ID) AS TestID, COALESCE (CODE_TESTTYPE.SHORT_DESC,\r\n"
+    		+ "                          TESTSCORES.TEST_TYPE) AS TestType, TESTSCORES.TEST_DATE, TESTSCORES.RAW_SCORE,\r\n"
+    		+ "                         TESTSCORES.ALPHA_SCORE, TESTSCORES.ALPHA_SCORE_1, TESTSCORES.ALPHA_SCORE_2, TESTSCORES.ALPHA_SCORE_3\r\n"
+    		+ "FROM dbo.TESTSCORES\r\n"
+    		+ "LEFT OUTER JOIN dbo.CODE_TEST ON TESTSCORES.TEST_ID =CODE_TEST.CODE_VALUE_KEY\r\n"
+    		+ "LEFT OUTER JOIN dbo.CODE_TESTTYPE ON TESTSCORES.TEST_TYPE =CODE_TESTTYPE.CODE_VALUE_KEY\r\n"
+    		+ "WHERE (TESTSCORES.PEOPLE_CODE_ID =#{campusId})\r\n"
+    		+ "  AND (TESTSCORES.TRANSCRIPT_PRINT ='Y')\r\n"
+    		+ "ORDER BY TESTSCORES.TEST_DATE ASC")
+    List<Map> selectTestScores(String campusId);
+    
+    @Select("SELECT NOTES\r\n"
+    		+ "FROM NOTES\r\n"
+    		+ "WHERE (ACADEMIC_YEAR =''\r\n"
+    		+ "       OR ACADEMIC_YEAR =NULL)\r\n"
+    		+ "  AND (ACADEMIC_TERM =''\r\n"
+    		+ "       OR ACADEMIC_TERM =NULL)\r\n"
+    		+ "  AND PRINT_ON_TRANS ='Y'\r\n"
+    		+ "  AND PEOPLE_ORG_CODE_ID =#{campusId}\r\n"
+    		+ "  AND TRANSCRIPT_SEQ =#{sequence}")
+    List<Map> selectNotes(String campusId, String sequence);
+    
+    
+    @Select("SELECT O.ORG_NAME_1, FICE_CODE\r\n"
+    		+ "FROM ORGANIZATION O,\r\n"
+    		+ "     TRANSCRIPTDETAIL T\r\n"
+    		+ "WHERE T.ORG_CODE_ID =O.ORG_CODE_ID\r\n"
+    		+ "  AND T.PEOPLE_CODE_ID =#{campusId}\r\n"
+    		+ "  AND T.ACADEMIC_YEAR =#{year}\r\n"
+    		+ "  AND T.ACADEMIC_TERM =#{term}\r\n"
+    		+ "  AND T.ACADEMIC_SESSION =#{session}\r\n"
+    		+ "  AND T.EVENT_ID =#{eventId}\r\n"
+    		+ "  AND T.EVENT_SUB_TYPE =#{eventSubType}\r\n"
+    		+ "  AND T.SECTION =#{section}\r\n"
+    		+ "  AND T.TRANSCRIPT_SEQ =#{sequence}\r\n"
+    		+ "  AND T.ORG_CODE_ID <> #{orgCode}")
+    Map selectOtherSchools(String campusId, String year, String term, String session, String eventId, String eventSubType, String section
+    		, String sequence, String orgCode);
 }
