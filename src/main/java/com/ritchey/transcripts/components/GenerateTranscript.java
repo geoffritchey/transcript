@@ -126,9 +126,11 @@ public class GenerateTranscript implements CommandLineRunner {
 			String session = (String) detail.get("ACADEMIC_SESSION");
 
 			String section = (String) detail.get("SECTION");
+			
+			String creditType = (String) detail.get("CREDIT_TYPE");
 
 			String grade = (String) detail.get("FINAL_GRADE");
-			String qpoints = String.format("%.2f", ((BigDecimal) detail.get("FINAL_QUALITY_PNTS")).doubleValue());
+			String qpoints = String.format("%.1f", ((BigDecimal) detail.get("FINAL_QUALITY_PNTS")).doubleValue());
 			String credit = String.format("%.2f", ((BigDecimal) detail.get("CREDIT_GRADE")).doubleValue());
 
 			if (!pageHasHeader) {
@@ -162,36 +164,39 @@ public class GenerateTranscript implements CommandLineRunner {
 
 			if (printNewTerm) {
 				gradesBuilder.addRow(Row.builder()
-						.add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1).colSpan(7)
+						.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1).colSpan(7)
 								.text(academicTermYear).horizontalAlignment(HorizontalAlignment.CENTER).build())
 						.build());
 
-				if ("TRANSFER".equals(academicTerm)) {
+				if ("TRAN".equals(creditType)) {
 					Map school = mapper.selectOtherSchools(campusId, academicYear, academicTerm, session, event,
 							eventSubType, section, sequence, "O000000001");
 					String otherSchool = (String) school.get("ORG_NAME_1");
 
 					gradesBuilder.addRow(Row
-							.builder().add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
+							.builder().add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
 									.colSpan(7).text(otherSchool).horizontalAlignment(HorizontalAlignment.LEFT).build())
 							.build());
 				}
 			}
 
-			Totals term = new Totals();
-			Totals cum = new Totals();
+			//BigDecimal attempt, BigDecimal earned, BigDecimal total, BigDecimal credit, BigDecimal quality, BigDecimal gpa)
+			Totals term = new Totals((BigDecimal)detail.get("ATTEMPTED_CREDITS"), (BigDecimal)detail.get("EARNED_CREDITS"), (BigDecimal)detail.get("TOTAL_CREDITS")
+					, (BigDecimal)detail.get("GPA_CREDITS"),(BigDecimal)detail.get("QUALITY_POINTS"), (BigDecimal)detail.get("GPA") );
+			Totals cum = new Totals((BigDecimal)detail.get("CUM_ATTEMPTED_CREDITS"), (BigDecimal)detail.get("CUM_EARNED_CREDITS"), (BigDecimal)detail.get("CUM_TOTAL_CREDITS")
+					, (BigDecimal)detail.get("CUM_GPA_CREDITS"),(BigDecimal)detail.get("CUM_QUALITY_POINTS"), (BigDecimal)detail.get("CUM_GPA") );
 
 			gradesBuilder.addRow(
 					Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().colSpan(2).text(event).borderWidthLeft(1).fontSize(FONT_SIZE).build())
 							.add(TextCell.builder().colSpan(2).text(eventName).fontSize(FONT_SIZE).build())
 							.add(TextCell.builder().text(grade).fontSize(FONT_SIZE).build())
-							.add(TextCell.builder().text(credit).fontSize(FONT_SIZE).build())
-							.add(TextCell.builder().text(qpoints).borderWidthRight(1).fontSize(FONT_SIZE).build()).build());
+							.add(TextCell.builder().text(credit).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE).build())
+							.add(TextCell.builder().text(qpoints).horizontalAlignment(HorizontalAlignment.RIGHT).borderWidthRight(1).fontSize(FONT_SIZE).build()).build());
 
 
 			try {
 				float height = gradesBuilder.build().getHeight();
-				if (height > 500f) {
+				if (height > 450f) {
 					endOfColumn = true;
 				}
 			} catch (Exception e) {
@@ -283,17 +288,17 @@ public class GenerateTranscript implements CommandLineRunner {
 				.colSpan(7).text("").horizontalAlignment(HorizontalAlignment.CENTER).build()).build());
 
 		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().text("").borderWidthLeft(1).fontSize(FONT_SIZE).build())
-				.add(TextCell.builder().text("Attempt").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
+				.add(TextCell.builder().text("Attempt").font(PDType1Font.TIMES_BOLD).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("Earned").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
+				.add(TextCell.builder().text("Earned").font(PDType1Font.TIMES_BOLD).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("Total").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
+				.add(TextCell.builder().text("Total").font(PDType1Font.TIMES_BOLD).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("GPACrd").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
+				.add(TextCell.builder().text("GPACrd").font(PDType1Font.TIMES_BOLD).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("QPnts").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
+				.add(TextCell.builder().text("QPnts").font(PDType1Font.TIMES_BOLD).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("GPA").horizontalAlignment(HorizontalAlignment.RIGHT).borderWidthRight(1)
+				.add(TextCell.builder().text("GPA").font(PDType1Font.TIMES_BOLD).horizontalAlignment(HorizontalAlignment.RIGHT).borderWidthRight(1)
 						.fontSize(FONT_SIZE).build())
 				.build());
 		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT)
