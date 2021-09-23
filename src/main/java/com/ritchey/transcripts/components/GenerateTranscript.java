@@ -1,6 +1,7 @@
 package com.ritchey.transcripts.components;
 
 import java.awt.Color;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -48,6 +49,11 @@ public class GenerateTranscript implements CommandLineRunner {
 
 	private static final HorizontalAlignment DEFAULT_HORIZONTAL_ALIGNMENT = HorizontalAlignment.LEFT;
 	private static final VerticalAlignment DEFAULT_VERTICAL_ALIGNMENT = VerticalAlignment.MIDDLE;
+	
+
+	private static final int FONT_SIZE = 6;
+	private static final float HEADER_FONT_SIZE = 8;
+	private static final float BODY_ROW_HEIGHT = 7f;
 
 	@Override
 	public void run(String... args) throws Exception {
@@ -57,10 +63,11 @@ public class GenerateTranscript implements CommandLineRunner {
 		if (args.length > 0)
 			outputFileName = args[0];
 
-		String campusId = "P000321735";
+		//String campusId = "P000321735"; // geoffrey v
+		String campusId = "P000100013";  //jodi
 
 		try (PDDocument document = new PDDocument()) {
-			final PDPage page = new PDPage(PDRectangle.LETTER);
+			PDPage page = new PDPage(PDRectangle.LETTER);
 			document.addPage(page);
 			PDPageContentStream contentStream = new PDPageContentStream(document, page);
 
@@ -72,7 +79,6 @@ public class GenerateTranscript implements CommandLineRunner {
 
 			printDetails(document, page, contentStream, campusId, governmentId, fullname, "001", details);
 
-			contentStream.close();
 			document.save(outputFileName);
 			document.close();
 		}
@@ -80,11 +86,12 @@ public class GenerateTranscript implements CommandLineRunner {
 	}
 
 	public void printDetails(PDDocument document, PDPage page, PDPageContentStream contentStream, String campusId,
-			String governmentId, String fullname, String sequence, List<Map> details) {
+			String governmentId, String fullname, String sequence, List<Map> details) throws IOException {
 
-		boolean endOfPage = false;
+		boolean endOfData = false;
+		boolean endOfColumn = false;
 		TableBuilder gradesBuilder = null;
-		Integer column = 1;
+		Integer column = 0;
 
 		int size = details.size();
 
@@ -97,7 +104,7 @@ public class GenerateTranscript implements CommandLineRunner {
 				nextYearTerm = (String) nextDetail.get("ACADEMIC_TERM") + " "
 						+ (String) nextDetail.get("ACADEMIC_YEAR");
 			} else {
-				endOfPage = true;
+				endOfData = true;
 			}
 			String lastYearTerm = null;
 			if (i > 0) {
@@ -128,34 +135,34 @@ public class GenerateTranscript implements CommandLineRunner {
 				// createNewPage
 				pageHasHeader = true;
 				printHeader(document, page, contentStream, campusId, "001", governmentId, fullname);
-				footer(document, page, contentStream);
+				printFooter(document, page, contentStream);
 				columnOutline(document, page, contentStream);
 
 				gradesBuilder = Table.builder().addColumnsOfWidth(35).addColumnsOfWidth(38).addColumnOfWidth(50)
 						.addColumnOfWidth(40).addColumnOfWidth(40).addColumnOfWidth(36).addColumnOfWidth(36)
 						.addRow(Row.builder()
 								.add(TextCell.builder().text("Course Id").colSpan(2).borderWidthBottom(1)
-										.borderWidthTop(1).borderWidthLeft(1).fontSize(8).build())
+										.borderWidthTop(1).borderWidthLeft(1).fontSize(FONT_SIZE).build())
 								.add(TextCell.builder().text("Title").colSpan(2).borderWidthBottom(1).borderWidthTop(1)
-										.fontSize(8).build())
-								.add(TextCell.builder().text("Grade").borderWidthBottom(1).borderWidthTop(1).fontSize(8)
+										.fontSize(FONT_SIZE).build())
+								.add(TextCell.builder().text("Grade").borderWidthBottom(1).borderWidthTop(1).fontSize(FONT_SIZE)
 										.build())
 								.add(TextCell.builder().text("Credits").borderWidthBottom(1).borderWidthTop(1)
-										.fontSize(8).build())
+										.fontSize(FONT_SIZE).build())
 								.add(TextCell.builder().text("QPnts").borderWidthBottom(1).borderWidthTop(1)
-										.borderWidthRight(1).fontSize(8).build())
+										.borderWidthRight(1).fontSize(FONT_SIZE).build())
 								.build());
 
 				gradesBuilder
 						.addRow(Row
-								.builder().add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1)
+								.builder().add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
 										.colSpan(7).text("").horizontalAlignment(HorizontalAlignment.CENTER).build())
 								.build());
 			}
 
 			if (printNewTerm) {
 				gradesBuilder.addRow(Row.builder()
-						.add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1).colSpan(7)
+						.add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1).colSpan(7)
 								.text(academicTermYear).horizontalAlignment(HorizontalAlignment.CENTER).build())
 						.build());
 
@@ -165,7 +172,7 @@ public class GenerateTranscript implements CommandLineRunner {
 					String otherSchool = (String) school.get("ORG_NAME_1");
 
 					gradesBuilder.addRow(Row
-							.builder().add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1)
+							.builder().add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
 									.colSpan(7).text(otherSchool).horizontalAlignment(HorizontalAlignment.LEFT).build())
 							.build());
 				}
@@ -175,24 +182,85 @@ public class GenerateTranscript implements CommandLineRunner {
 			Totals cum = new Totals();
 
 			gradesBuilder.addRow(
-					Row.builder().add(TextCell.builder().colSpan(2).text(event).borderWidthLeft(1).fontSize(8).build())
-							.add(TextCell.builder().colSpan(2).text(eventName).fontSize(8).build())
-							.add(TextCell.builder().text(grade).fontSize(8).build())
-							.add(TextCell.builder().text(credit).fontSize(8).build())
-							.add(TextCell.builder().text(qpoints).borderWidthRight(1).fontSize(8).build()).build());
+					Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().colSpan(2).text(event).borderWidthLeft(1).fontSize(FONT_SIZE).build())
+							.add(TextCell.builder().colSpan(2).text(eventName).fontSize(FONT_SIZE).build())
+							.add(TextCell.builder().text(grade).fontSize(FONT_SIZE).build())
+							.add(TextCell.builder().text(credit).fontSize(FONT_SIZE).build())
+							.add(TextCell.builder().text(qpoints).borderWidthRight(1).fontSize(FONT_SIZE).build()).build());
 
+
+			try {
+				float height = gradesBuilder.build().getHeight();
+				if (height > 500f) {
+					endOfColumn = true;
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			
+			if (endOfColumn) {
+				float startX =  (column ==0)?20f:300f;
+				Table grades = gradesBuilder.build();
+				// Set up the drawer
+				TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(startX)
+						.startY(page.getMediaBox().getUpperRightY() - 175f).table(grades).build();
+
+				// And go for it!
+				tableDrawer.draw();
+				//gradesBuilder = Table.builder();
+				
+				if (column == 1) {
+					contentStream.close();
+					column = 0;
+					page = new PDPage(PDRectangle.LETTER);
+					document.addPage(page);
+					contentStream = new PDPageContentStream(document, page);
+					printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname);
+					printFooter(document, page, contentStream);
+					columnOutline(document, page, contentStream);
+
+
+				}
+				else
+					column = 1;
+				
+				endOfColumn = false;
+
+				gradesBuilder = Table.builder().addColumnsOfWidth(35).addColumnsOfWidth(38).addColumnOfWidth(50)
+						.addColumnOfWidth(40).addColumnOfWidth(40).addColumnOfWidth(36).addColumnOfWidth(36)
+						.addRow(Row.builder()
+								.add(TextCell.builder().text("Course Id").colSpan(2).borderWidthBottom(1)
+										.borderWidthTop(1).borderWidthLeft(1).fontSize(FONT_SIZE).build())
+								.add(TextCell.builder().text("Title").colSpan(2).borderWidthBottom(1).borderWidthTop(1)
+										.fontSize(FONT_SIZE).build())
+								.add(TextCell.builder().text("Grade").borderWidthBottom(1).borderWidthTop(1).fontSize(FONT_SIZE)
+										.build())
+								.add(TextCell.builder().text("Credits").borderWidthBottom(1).borderWidthTop(1)
+										.fontSize(FONT_SIZE).build())
+								.add(TextCell.builder().text("QPnts").borderWidthBottom(1).borderWidthTop(1)
+										.borderWidthRight(1).fontSize(FONT_SIZE).build())
+								.build());
+
+				gradesBuilder
+						.addRow(Row
+								.builder().add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
+										.colSpan(7).text("").horizontalAlignment(HorizontalAlignment.CENTER).build())
+								.build());
+				
+			}
+			
 			if (printSummary) {
 
 				printSummary(gradesBuilder, term, cum);
 
 			}
 
-			if (endOfPage) {
+			if (endOfData) {
 
 				Table grades = gradesBuilder.build();
 
 				
-				float startX =  (column ==1)?20f:300f;
+				float startX =  (column ==0)?20f:300f;
 				
 				// Set up the drawer
 				TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(startX)
@@ -200,6 +268,8 @@ public class GenerateTranscript implements CommandLineRunner {
 
 				// And go for it!
 				tableDrawer.draw();
+				contentStream.close();
+
 			}
 
 		}
@@ -209,58 +279,58 @@ public class GenerateTranscript implements CommandLineRunner {
 	public void printSummary(TableBuilder gradesBuilder, Totals term, Totals cum) {
 		boolean endTranscript = false;
 
-		gradesBuilder.addRow(Row.builder().add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1)
+		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
 				.colSpan(7).text("").horizontalAlignment(HorizontalAlignment.CENTER).build()).build());
 
-		gradesBuilder.addRow(Row.builder().add(TextCell.builder().text("").borderWidthLeft(1).fontSize(8).build())
-				.add(TextCell.builder().text("Attempt").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().text("").borderWidthLeft(1).fontSize(FONT_SIZE).build())
+				.add(TextCell.builder().text("Attempt").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("Earned").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text("Earned").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("Total").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text("Total").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("GPACrd").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text("GPACrd").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text("QPnts").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text("QPnts").horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
 				.add(TextCell.builder().text("GPA").horizontalAlignment(HorizontalAlignment.RIGHT).borderWidthRight(1)
-						.fontSize(8).build())
+						.fontSize(FONT_SIZE).build())
 				.build());
-		gradesBuilder.addRow(Row.builder()
+		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT)
 				.add(TextCell.builder().text("Term").horizontalAlignment(HorizontalAlignment.LEFT).borderWidthLeft(1)
-						.fontSize(8).build())
-				.add(TextCell.builder().text(term.attempt).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+						.fontSize(FONT_SIZE).build())
+				.add(TextCell.builder().text(term.attempt).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text(term.earned).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text(term.earned).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text(term.total).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text(term.total).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text(term.credit).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text(term.credit).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text(term.quality).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text(term.quality).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
 				.add(TextCell.builder().text(term.gpa).horizontalAlignment(HorizontalAlignment.RIGHT)
-						.borderWidthRight(1).fontSize(8).build())
+						.borderWidthRight(1).fontSize(FONT_SIZE).build())
 				.build());
-		gradesBuilder.addRow(Row.builder().add(TextCell.builder().text("Cum").borderWidthLeft(1).fontSize(8).build())
-				.add(TextCell.builder().text(cum.attempt).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().text("Cum").borderWidthLeft(1).fontSize(FONT_SIZE).build())
+				.add(TextCell.builder().text(cum.attempt).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text(cum.earned).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text(cum.earned).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text(cum.total).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text(cum.total).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text(cum.credit).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text(cum.credit).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
-				.add(TextCell.builder().text(cum.quality).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(8)
+				.add(TextCell.builder().text(cum.quality).horizontalAlignment(HorizontalAlignment.RIGHT).fontSize(FONT_SIZE)
 						.build())
 				.add(TextCell.builder().text(cum.gpa).horizontalAlignment(HorizontalAlignment.RIGHT).borderWidthRight(1)
-						.fontSize(8).build())
+						.fontSize(FONT_SIZE).build())
 				.build());
-		gradesBuilder.addRow(Row.builder().add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1)
+		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
 				.colSpan(7).text("").horizontalAlignment(HorizontalAlignment.CENTER).build()).build());
 		if (endTranscript) {
-			gradesBuilder.addRow(Row.builder()
-					.add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1).colSpan(7)
+			gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT)
+					.add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1).colSpan(7)
 							.text("End of Transcript").horizontalAlignment(HorizontalAlignment.CENTER).build())
 					.build());
 		}
@@ -271,29 +341,29 @@ public class GenerateTranscript implements CommandLineRunner {
 				.addColumnOfWidth(40).addColumnOfWidth(40).addColumnOfWidth(36).addColumnOfWidth(36)
 				.addRow(Row.builder()
 						.add(TextCell.builder().text("Course Id").colSpan(2).borderWidthBottom(1).borderWidthTop(1)
-								.borderWidthLeft(1).fontSize(8).build())
+								.borderWidthLeft(1).fontSize(FONT_SIZE).build())
 						.add(TextCell.builder().text("Title").colSpan(2).borderWidthBottom(1).borderWidthTop(1)
-								.fontSize(8).build())
-						.add(TextCell.builder().text("Grade").borderWidthBottom(1).borderWidthTop(1).fontSize(8)
+								.fontSize(FONT_SIZE).build())
+						.add(TextCell.builder().text("Grade").borderWidthBottom(1).borderWidthTop(1).fontSize(FONT_SIZE)
 								.build())
-						.add(TextCell.builder().text("Credits").borderWidthBottom(1).borderWidthTop(1).fontSize(8)
+						.add(TextCell.builder().text("Credits").borderWidthBottom(1).borderWidthTop(1).fontSize(FONT_SIZE)
 								.build())
 						.add(TextCell.builder().text("QPnts").borderWidthBottom(1).borderWidthTop(1).borderWidthRight(1)
-								.fontSize(8).build())
+								.fontSize(FONT_SIZE).build())
 						.build());
 
-		gradesBuilder.addRow(Row.builder().add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1)
+		gradesBuilder.addRow(Row.builder().add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
 				.colSpan(7).text("").horizontalAlignment(HorizontalAlignment.CENTER).build()).build());
 
 		for (int i = 0; i < 39; i++) {
 			gradesBuilder
 					.addRow(Row
-							.builder().add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1)
+							.builder().add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1)
 									.colSpan(7).text("").horizontalAlignment(HorizontalAlignment.CENTER).build())
 							.build());
 		}
 		gradesBuilder.addRow(Row.builder()
-				.add(TextCell.builder().fontSize(8).borderWidthLeft(1).borderWidthRight(1).borderWidthBottom(1)
+				.add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1).borderWidthBottom(1)
 						.colSpan(7).text("").horizontalAlignment(HorizontalAlignment.CENTER).build())
 				.build());
 		
@@ -314,7 +384,7 @@ public class GenerateTranscript implements CommandLineRunner {
 
 	public void printHeader(PDDocument document, PDPage page, PDPageContentStream contentStream, String campusId,
 			String sequence, String governmentId, String fullname) {
-		Map programDegree = mapper.selectProgramDegree(campusId, sequence);
+		Map programDegree = mapper.selectProgramDegree(campusId, sequence).get(0);
 		String program = (String) programDegree.get("program");
 		String degree = (String) programDegree.get("degree");
 		String title = (String) programDegree.get("title");
@@ -347,9 +417,9 @@ public class GenerateTranscript implements CommandLineRunner {
 				.addColumnsOfWidth(140, 300, 140).addRow(Row
 						.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
 
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD)
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Date Printed:  ").build())
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN).text(todaysDate)
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(todaysDate)
 										.build())
 								.build()).horizontalAlignment(HorizontalAlignment.LEFT)
 								.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE)
@@ -357,7 +427,7 @@ public class GenerateTranscript implements CommandLineRunner {
 						.add(TextCell.builder().text("Lubbock Christian University").font(PDType1Font.TIMES_BOLD)
 								.fontSize(16).horizontalAlignment(HorizontalAlignment.CENTER).borderWidth(0).build())
 						.add(TextCell.builder().text("Page 1 of 1").horizontalAlignment(HorizontalAlignment.RIGHT)
-								.verticalAlignment(VerticalAlignment.TOP).font(PDType1Font.TIMES_BOLD).fontSize(8)
+								.verticalAlignment(VerticalAlignment.TOP).font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE)
 								.borderWidth(0).build())
 						.build())
 				.addRow(Row.builder().add(TextCell.builder().text("").build())
@@ -378,31 +448,31 @@ public class GenerateTranscript implements CommandLineRunner {
 
 		Table personalDetails = Table.builder().addColumnsOfWidth(340, 300)
 				.addRow(Row.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-						.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD).text("Name:  ").build())
-						.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN).text("" + fullname)
+						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD).text("Name:  ").build())
+						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text("" + fullname)
 								.build())
 						.build()).build())
 						.add(ParagraphCell.builder()
 								.paragraph(ParagraphCell.Paragraph.builder()
-										.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD)
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 												.text("Id:  ").build())
-										.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN)
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
 												.text("" + governmentId).build())
 										.build())
 								.build())
 						.build())
 				.addRow(Row.builder().add(ParagraphCell.builder()
 						.paragraph(ParagraphCell.Paragraph.builder()
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD)
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Program/Degree/Curriculum:  ").build())
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN)
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
 										.text("" + program + "/" + degree + "/" + title).build())
 								.build())
 						.build())
 						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD)
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Degree/Date Granted:  ").build())
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN)
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
 										.text((graduationDegree == null) ? ""
 												: graduationDegree
 														+ (graduationDate == null ? "" : df.format(graduationDate)))
@@ -410,46 +480,46 @@ public class GenerateTranscript implements CommandLineRunner {
 								.build()).build())
 						.build())
 				.addRow(Row.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-						.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD).text(" ").build())
-						.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN).text("").build())
+						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD).text(" ").build())
+						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text("").build())
 						.build()).build())
 						.add(ParagraphCell.builder()
 								.paragraph(ParagraphCell.Paragraph.builder()
-										.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD).text(" ")
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD).text(" ")
 												.build())
-										.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN).text("")
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text("")
 												.build())
 										.build())
 								.build())
 						.build())
 				.addRow(Row.builder().add(ParagraphCell.builder()
 						.paragraph(ParagraphCell.Paragraph.builder()
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD)
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Previous Institution:  ").build())
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN)
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
 										.text(degreeOrganization + ", " + degreeTitle).build())
 								.build())
 						.build())
 						.add(ParagraphCell.builder()
 								.paragraph(ParagraphCell.Paragraph.builder()
-										.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD)
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 												.text("Honors:  ").build())
-										.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN)
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
 												.text(honors == null ? "" : honors).build())
 										.build())
 								.build())
 						.build())
 				.addRow(Row.builder()
 						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD).text("").build())
-								.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN).text("")
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD).text("").build())
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text("")
 										.build())
 								.build()).build())
 						.add(ParagraphCell.builder()
 								.paragraph(ParagraphCell.Paragraph.builder()
-										.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_BOLD)
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 												.text("Cumulative GPA:  ").build())
-										.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN)
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
 												.text(String.format("%3.2f", cumulativeGpa)).build())
 										.build())
 								.build())
@@ -471,13 +541,13 @@ public class GenerateTranscript implements CommandLineRunner {
 
 	}
 
-	public void footer(PDDocument document, PDPage page, PDPageContentStream contentStream) {
+	public void printFooter(PDDocument document, PDPage page, PDPageContentStream contentStream) {
 		Table myTable = Table.builder()
 
 				.addColumnsOfWidth(580)
 				.addRow(Row.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
 
-						.append(StyledText.builder().fontSize(8f).font(PDType1Font.TIMES_ROMAN).text(
+						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
 								"IN ACCORDANCE WITH THE FAMILY EDUCATIONAL RIGHTS AND PRIVACY ACT OF 1974, AS AMENDED, TRANSCRIPTS MAY NOT BE RELEASED TO A THIRD PARTY WITHOUT THE WRITTEN CONSENT OF THE STUDENT.")
 								.build())
 						.build()).horizontalAlignment(HorizontalAlignment.CENTER)
