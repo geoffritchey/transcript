@@ -40,6 +40,9 @@ public class GenerateTranscript implements CommandLineRunner {
 
 	@Autowired
 	TranscriptsMapper mapper;
+	
+	List<PageEssentials> contentStreams = new ArrayList<PageEssentials>();
+	PageEssentials pageEssentials = null; 
 
 	private static final PDFont DEFAULT_FONT = PDType1Font.HELVETICA;
 	private static final int DEFAULT_FONT_SIZE = 12;
@@ -58,6 +61,7 @@ public class GenerateTranscript implements CommandLineRunner {
 	@Override
 	public void run(String... args) throws Exception {
 
+		
 		LOG.info("EXECUTING : command line runner");
 		String outputFileName = "Simple.pdf";
 		if (args.length > 0)
@@ -67,9 +71,10 @@ public class GenerateTranscript implements CommandLineRunner {
 		String campusId = "P000100013"; // jodi
 
 		try (PDDocument document = new PDDocument()) {
-			PDPage page = new PDPage(PDRectangle.LETTER);
+			pageEssentials = new PageEssentials(document);
+			PDPage page = pageEssentials.getPage();
 			document.addPage(page);
-			PDPageContentStream contentStream = new PDPageContentStream(document, page);
+			PDPageContentStream contentStream = pageEssentials.getContentStream();
 
 			List<Map> details = mapper.selectDetails(campusId, "001", "Y");
 
@@ -79,7 +84,48 @@ public class GenerateTranscript implements CommandLineRunner {
 
 			printDetails(document, page, contentStream, campusId, governmentId, fullname, "001", details);
 
+			int totalPages = contentStreams.size();
+			int pageNumber = 0;
+			for (PageEssentials cs: contentStreams) {
+				pageNumber++;
+				Table myTable = Table.builder()
+
+						.addColumnsOfWidth(140, 300, 140).addRow(Row
+								.builder().add(TextCell.builder().text("").build())
+								.add(TextCell.builder().text("").borderWidth(0).build())
+								.add(TextCell.builder().text("Page " + pageNumber + " of " + totalPages).horizontalAlignment(HorizontalAlignment.RIGHT)
+										.verticalAlignment(VerticalAlignment.TOP).font(PDType1Font.TIMES_BOLD)
+										.fontSize(FONT_SIZE).borderWidth(0).build())
+								.build())
+						.build();
+				
+				TableDrawer tableDrawer = TableDrawer.builder().contentStream(cs.getContentStream()).page(cs.getPage()).startX(20f)
+						.startY(page.getMediaBox().getUpperRightY() - 20f).table(myTable).build();
+
+				tableDrawer.draw();
+				
+				Table myTable2 = Table.builder()
+
+				.addColumnsOfWidth(290, 290)
+				.addRow(Row.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
+						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
+								pageNumber==totalPages?"":"*** CONTINUED ON NEXT PAGE ***")
+								.build())
+						.build()).horizontalAlignment(HorizontalAlignment.CENTER).colSpan(2)
+						.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE).build())
+						.build())
+				.build();
+
+				TableDrawer tableDrawer2 = TableDrawer.builder().contentStream(cs.getContentStream()).page(cs.getPage()).startX(20f)
+						.startY(page.getMediaBox().getUpperRightY() - 710f).table(myTable2).build();
+
+				tableDrawer2.draw();
+				
+				cs.getContentStream().close();
+			}
+			
 			document.save(outputFileName);
+
 			document.close();
 		}
 
@@ -216,12 +262,14 @@ public class GenerateTranscript implements CommandLineRunner {
 				// gradesBuilder = Table.builder();
 
 				if (column == 1) {
-					contentStream.close();
+					//contentStream.close();
+					contentStreams.add(pageEssentials);
 					column = 0;
-					page = new PDPage(PDRectangle.LETTER);
+					pageEssentials = new PageEssentials(document);
+					page = pageEssentials.getPage();
 					pageNumber++;
 					document.addPage(page);
-					contentStream = new PDPageContentStream(document, page);
+					contentStream = pageEssentials.getContentStream();
 					printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname, pageNumber);
 					printFooter(document, page, contentStream, endOfData);
 					columnOutline(document, page, contentStream);
@@ -250,9 +298,12 @@ public class GenerateTranscript implements CommandLineRunner {
 				TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(startX)
 						.startY(page.getMediaBox().getUpperRightY() - 175f).table(grades).build();
 
+				
 				// And go for it!
 				tableDrawer.draw();
-				contentStream.close();
+				contentStreams.add(pageEssentials);
+				//contentStream.close();
+				
 				
 
 			}
@@ -456,7 +507,7 @@ public class GenerateTranscript implements CommandLineRunner {
 								.build())
 						.add(TextCell.builder().text("Lubbock Christian University").font(PDType1Font.TIMES_BOLD)
 								.fontSize(16).horizontalAlignment(HorizontalAlignment.CENTER).borderWidth(0).build())
-						.add(TextCell.builder().text("Page " + pageNumber + " of ").horizontalAlignment(HorizontalAlignment.RIGHT)
+						.add(TextCell.builder().text("").horizontalAlignment(HorizontalAlignment.RIGHT)
 								.verticalAlignment(VerticalAlignment.TOP).font(PDType1Font.TIMES_BOLD)
 								.fontSize(FONT_SIZE).borderWidth(0).build())
 						.build())
@@ -583,7 +634,7 @@ public class GenerateTranscript implements CommandLineRunner {
 				.addColumnsOfWidth(290, 290)
 				.addRow(Row.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
 						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
-								endOfData?"":"*** CONTINUED ON NEXT PAGE ***")
+								"")
 								.build())
 						.build()).horizontalAlignment(HorizontalAlignment.CENTER).colSpan(2)
 						.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE).build())
