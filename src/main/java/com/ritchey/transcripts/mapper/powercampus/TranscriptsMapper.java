@@ -180,4 +180,16 @@ public interface TranscriptsMapper {
     		+ "  AND T.ORG_CODE_ID <> #{orgCode}")
     Map selectOtherSchools(String campusId, String year, String term, String session, String eventId, String eventSubType, String section
     		, String sequence, String orgCode);
+    
+    @Select("SELECT DISTINCT c.MEDIUM_DESC \r\n"
+    		+ "FROM TRANSCRIPTAWARD A \r\n"
+    		+ "	join CODE_AWARDVALUE C on  A.AWARD_VALUE =C.CODE_VALUE\r\n"
+    		+ "WHERE 1=1\r\n"
+    		+ "	and A.PEOPLE_CODE_ID = #{campusId} \r\n"
+    		+ "  AND A.TRANSCRIPT_SEQ = #{sequence} \r\n"
+    		+ "   AND A.AWARD_TYPE = #{awardType} \r\n"
+    		+ "  AND A.PRINT_TRANSCRIPT =#{printTranscript} \r\n"
+    		+ "    AND A.ACADEMIC_YEAR =#{year} \r\n"
+    		+ "  AND A.ACADEMIC_TERM =#{term} ")
+    List<Map> selectAwards(String campusId, String sequence, String awardType, String printTranscript, String year, String term);
 }
