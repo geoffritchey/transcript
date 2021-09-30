@@ -3,6 +3,7 @@ package com.ritchey.transcripts.components;
 import java.awt.Color;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -40,9 +41,9 @@ public class GenerateTranscript implements CommandLineRunner {
 
 	@Autowired
 	TranscriptsMapper mapper;
-	
+
 	List<PageEssentials> contentStreams = new ArrayList<PageEssentials>();
-	PageEssentials pageEssentials = null; 
+	PageEssentials pageEssentials = null;
 
 	private static final PDFont DEFAULT_FONT = PDType1Font.HELVETICA;
 	private static final int DEFAULT_FONT_SIZE = 12;
@@ -58,81 +59,98 @@ public class GenerateTranscript implements CommandLineRunner {
 	private static final float HEADER_FONT_SIZE = 8;
 	private static final float BODY_ROW_HEIGHT = 10f;
 
+	SimpleDateFormat df = new SimpleDateFormat("MMMMM dd, yyyy");
+
 	@Override
 	public void run(String... args) throws Exception {
 
-		
 		LOG.info("EXECUTING : command line runner");
-		String outputFileName = "Simple.pdf";
-		if (args.length > 0)
-			outputFileName = args[0];
 
-		// String campusId = "P000321735"; // geoffrey v
-		String campusId = "P000100013"; // jodi
+		// String campusId = "P000100013"; // jodi
+		String campusId = "P000001032";// Sarah Womble
 
-		try (PDDocument document = new PDDocument()) {
-			pageEssentials = new PageEssentials(document);
-			PDPage page = pageEssentials.getPage();
-			document.addPage(page);
-			PDPageContentStream contentStream = pageEssentials.getContentStream();
+		List<String> sequences = mapper.selectTranscriptSequences(campusId);
+		for (String sequence : sequences) {
+			LOG.debug("sequence = " + sequence);
+			String outputFileName = String.format("%s-%s.pdf", campusId, sequence);
 
-			List<Map> details = mapper.selectDetails(campusId, "001", "Y");
-
-			String governmentId = (String) details.get(0).get("GOVERNMENT_ID");
-			governmentId = governmentId.replaceFirst("(...)(..)(....)", "$1-$2-$3");
-			String fullname = (String) details.get(0).get("TRANSCRIPTHEADER_fullName");
-
-			printDetails(document, page, contentStream, campusId, governmentId, fullname, "001", details);
-
-			int totalPages = contentStreams.size();
-			int pageNumber = 0;
-			for (PageEssentials cs: contentStreams) {
-				pageNumber++;
-				Table myTable = Table.builder()
-
-						.addColumnsOfWidth(140, 300, 140).addRow(Row
-								.builder().add(TextCell.builder().text("").build())
-								.add(TextCell.builder().text("").borderWidth(0).build())
-								.add(TextCell.builder().text("Page " + pageNumber + " of " + totalPages).horizontalAlignment(HorizontalAlignment.RIGHT)
-										.verticalAlignment(VerticalAlignment.TOP).font(PDType1Font.TIMES_BOLD)
-										.fontSize(FONT_SIZE).borderWidth(0).build())
-								.build())
-						.build();
+			try (PDDocument document = new PDDocument()) {
+				contentStreams = new ArrayList<PageEssentials>();
 				
-				TableDrawer tableDrawer = TableDrawer.builder().contentStream(cs.getContentStream()).page(cs.getPage()).startX(20f)
-						.startY(page.getMediaBox().getUpperRightY() - 20f).table(myTable).build();
+				pageEssentials = new PageEssentials(document);
+				PDPage page = pageEssentials.getPage();
+				document.addPage(page);
+				PDPageContentStream contentStream = pageEssentials.getContentStream();
 
-				tableDrawer.draw();
-				
-				Table myTable2 = Table.builder()
+				List<Map> details = mapper.selectDetails(campusId, sequence, "Y");
 
-				.addColumnsOfWidth(290, 290)
-				.addRow(Row.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
-								pageNumber==totalPages?"":"*** CONTINUED ON NEXT PAGE ***")
-								.build())
-						.build()).horizontalAlignment(HorizontalAlignment.CENTER).colSpan(2)
-						.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE).build())
-						.build())
-				.build();
+				String governmentId = (String) details.get(0).get("GOVERNMENT_ID");
+				governmentId = governmentId.replaceFirst("(...)(..)(....)", "$1-$2-$3");
+				String fullname = (String) details.get(0).get("TRANSCRIPTHEADER_fullName");
 
-				TableDrawer tableDrawer2 = TableDrawer.builder().contentStream(cs.getContentStream()).page(cs.getPage()).startX(20f)
-						.startY(page.getMediaBox().getUpperRightY() - 710f).table(myTable2).build();
+				List<Map> testScores = mapper.selectTestScores(campusId);
 
-				tableDrawer2.draw();
-				
-				cs.getContentStream().close();
+				printDetails(document, page, contentStream, campusId, governmentId, fullname, sequence, details,
+						testScores);
+
+				int totalPages = contentStreams.size();
+				int pageNumber = 0;
+				for (PageEssentials cs : contentStreams) {
+					pageNumber++;
+					Table myTable = Table.builder()
+
+							.addColumnsOfWidth(140, 300, 140)
+							.addRow(Row.builder().add(TextCell.builder().text("").build())
+									.add(TextCell.builder().text("").borderWidth(0).build())
+									.add(TextCell.builder().text("Page " + pageNumber + " of " + totalPages)
+											.horizontalAlignment(HorizontalAlignment.RIGHT)
+											.verticalAlignment(VerticalAlignment.TOP).font(PDType1Font.TIMES_BOLD)
+											.fontSize(FONT_SIZE).borderWidth(0).build())
+									.build())
+							.build();
+
+					TableDrawer tableDrawer = TableDrawer.builder().contentStream(cs.getContentStream())
+							.page(cs.getPage()).startX(20f).startY(page.getMediaBox().getUpperRightY() - 20f)
+							.table(myTable).build();
+
+					tableDrawer.draw();
+
+					Table myTable2 = Table.builder()
+
+							.addColumnsOfWidth(290, 290)
+							.addRow(Row.builder().add(ParagraphCell.builder()
+									.paragraph(ParagraphCell.Paragraph.builder()
+											.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
+													.font(PDType1Font.TIMES_ROMAN)
+													.text(pageNumber == totalPages ? ""
+															: "*** CONTINUED ON NEXT PAGE ***")
+													.build())
+											.build())
+									.horizontalAlignment(HorizontalAlignment.CENTER).colSpan(2)
+									.verticalAlignment(VerticalAlignment.TOP).borderWidth(0)
+									.backgroundColor(Color.WHITE).build()).build())
+							.build();
+
+					TableDrawer tableDrawer2 = TableDrawer.builder().contentStream(cs.getContentStream())
+							.page(cs.getPage()).startX(20f).startY(page.getMediaBox().getUpperRightY() - 710f)
+							.table(myTable2).build();
+
+					tableDrawer2.draw();
+
+					cs.getContentStream().close();
+				}
+
+				document.save(outputFileName);
+
+				document.close();
 			}
-			
-			document.save(outputFileName);
-
-			document.close();
 		}
 
 	}
 
 	public void printDetails(PDDocument document, PDPage page, PDPageContentStream contentStream, String campusId,
-			String governmentId, String fullname, String sequence, List<Map> details) throws IOException {
+			String governmentId, String fullname, String sequence, List<Map> details, List<Map> testScores)
+			throws IOException {
 
 		boolean endOfData = false;
 		boolean endOfColumn = false;
@@ -163,7 +181,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			String academicYear = (String) detail.get("ACADEMIC_YEAR");
 			String academicTerm = (String) detail.get("ACADEMIC_TERM");
 			String academicTermYear = academicTerm + " " + academicYear;
-			
+
 			List<Map> awards = mapper.selectAwards(campusId, sequence, "TERMSTND", "Y", academicYear, academicTerm);
 
 			boolean printSummary = (nextYearTerm == null) || !academicTermYear.equals(nextYearTerm);
@@ -174,11 +192,10 @@ public class GenerateTranscript implements CommandLineRunner {
 			String eventSubType = (String) detail.get("EVENT_SUB_TYPE");
 			String session = (String) detail.get("ACADEMIC_SESSION");
 
-
 			String section = (String) detail.get("SECTION");
 
 			String creditType = (String) detail.get("CREDIT_TYPE");
-			
+
 			String repeat = (String) detail.get("REPEATED");
 
 			String grade = (String) detail.get("FINAL_GRADE");
@@ -191,7 +208,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			if (!pageHasHeader) {
 				// createNewPage
 				pageHasHeader = true;
-				printHeader(document, page, contentStream, campusId, "001", governmentId, fullname, pageNumber);
+				printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname, pageNumber);
 				printFooter(document, page, contentStream, endOfData);
 				columnOutline(document, page, contentStream);
 
@@ -218,7 +235,6 @@ public class GenerateTranscript implements CommandLineRunner {
 				}
 			}
 
-
 			// BigDecimal attempt, BigDecimal earned, BigDecimal total, BigDecimal credit,
 			// BigDecimal quality, BigDecimal gpa)
 			Totals term = new Totals((BigDecimal) detail.get("ATTEMPTED_CREDITS"),
@@ -239,7 +255,6 @@ public class GenerateTranscript implements CommandLineRunner {
 					.add(TextCell.builder().text(qpoints).horizontalAlignment(HorizontalAlignment.RIGHT)
 							.borderWidthRight(1).fontSize(FONT_SIZE).build())
 					.build());
-			
 
 			try {
 				float height = gradesBuilder.build().getHeight();
@@ -262,7 +277,7 @@ public class GenerateTranscript implements CommandLineRunner {
 				// gradesBuilder = Table.builder();
 
 				if (column == 1) {
-					//contentStream.close();
+					// contentStream.close();
 					contentStreams.add(pageEssentials);
 					column = 0;
 					pageEssentials = new PageEssentials(document);
@@ -284,7 +299,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			}
 
 			if (printSummary) {
-				printSummary(gradesBuilder, term, cum, awards, endOfData);
+				printSummary(gradesBuilder, term, cum, awards, endOfData, testScores);
 
 			}
 
@@ -298,13 +313,10 @@ public class GenerateTranscript implements CommandLineRunner {
 				TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(startX)
 						.startY(page.getMediaBox().getUpperRightY() - 175f).table(grades).build();
 
-				
 				// And go for it!
 				tableDrawer.draw();
 				contentStreams.add(pageEssentials);
-				//contentStream.close();
-				
-				
+				// contentStream.close();
 
 			}
 
@@ -322,8 +334,8 @@ public class GenerateTranscript implements CommandLineRunner {
 								.fontSize(FONT_SIZE).build())
 						.add(TextCell.builder().text("").borderWidthBottom(1).borderWidthTop(1).fontSize(FONT_SIZE)
 								.build())
-						.add(TextCell.builder().text("").borderWidthBottom(1).borderWidthTop(1)
-								.fontSize(FONT_SIZE).build())
+						.add(TextCell.builder().text("").borderWidthBottom(1).borderWidthTop(1).fontSize(FONT_SIZE)
+								.build())
 						.add(TextCell.builder().text("").borderWidthBottom(1).borderWidthTop(1).borderWidthRight(1)
 								.fontSize(FONT_SIZE).build())
 						.build());
@@ -335,24 +347,22 @@ public class GenerateTranscript implements CommandLineRunner {
 		return gradesBuilder;
 	}
 
-	public void printSummary(TableBuilder gradesBuilder, Totals term, Totals cum, List<Map> awards, boolean endTranscript) {
+	public void printSummary(TableBuilder gradesBuilder, Totals term, Totals cum, List<Map> awards,
+			boolean endTranscript, List<Map> testScores) {
 
-
-		
 		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT)
 				.add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1).colSpan(7).text("")
 						.horizontalAlignment(HorizontalAlignment.CENTER).build())
 				.build());
 
-		for (Map award: awards) {
+		for (Map award : awards) {
 			String strAward = (String) award.get("MEDIUM_DESC");
 			if (strAward != null) {
-				gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT)
-						.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).colSpan(7).text(strAward).fontSize(FONT_SIZE).build())
-						.build());
+				gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder()
+						.font(PDType1Font.TIMES_BOLD).colSpan(7).text(strAward).fontSize(FONT_SIZE).build()).build());
 			}
 		}
-		
+
 		gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT)
 				.add(TextCell.builder().text("").borderWidthLeft(1).fontSize(FONT_SIZE).build())
 				.add(TextCell.builder().text("Attempt").font(PDType1Font.TIMES_BOLD)
@@ -403,11 +413,41 @@ public class GenerateTranscript implements CommandLineRunner {
 				.add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1).colSpan(7).text("")
 						.horizontalAlignment(HorizontalAlignment.CENTER).build())
 				.build());
+
 		if (endTranscript) {
-			gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT)
-					.add(TextCell.builder().fontSize(FONT_SIZE).borderWidthLeft(1).borderWidthRight(1).colSpan(7)
-							.text("End of Transcript").horizontalAlignment(HorizontalAlignment.CENTER).build())
-					.build());
+			if (testScores.size() > 0) {
+
+				gradesBuilder.addRow(Row.builder().height(BODY_ROW_HEIGHT)
+						.add(TextCell.builder().fontSize(FONT_SIZE).colSpan(7).text("Test Scores")
+								.font(PDType1Font.TIMES_BOLD).horizontalAlignment(HorizontalAlignment.CENTER).build())
+						.build());
+
+				for (Map testScore : testScores) {
+
+					String text = String.format("%s  %s  %s  Score: %.2f", (String) testScore.get("TestID"),
+							(String) testScore.get("TestType"), df.format((Date) testScore.get("TEST_DATE")),
+							((BigDecimal) testScore.get("RAW_SCORE")).doubleValue());
+
+					gradesBuilder.addRow(
+							Row.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().text("").colSpan(1).build())
+									.add(TextCell.builder().fontSize(FONT_SIZE).colSpan(6).text(text)
+											.horizontalAlignment(HorizontalAlignment.LEFT).build())
+									.build());
+
+				}
+
+			}
+
+			gradesBuilder
+					.addRow(Row.builder().height(BODY_ROW_HEIGHT)
+							.add(TextCell.builder().fontSize(FONT_SIZE).colSpan(7).text("")
+									.horizontalAlignment(HorizontalAlignment.CENTER).build())
+							.build())
+					.addRow(Row
+							.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().fontSize(FONT_SIZE).colSpan(7)
+									.text("End of Transcript").horizontalAlignment(HorizontalAlignment.CENTER).build())
+							.build());
+
 		}
 	}
 
@@ -460,13 +500,13 @@ public class GenerateTranscript implements CommandLineRunner {
 
 	public void printHeader(PDDocument document, PDPage page, PDPageContentStream contentStream, String campusId,
 			String sequence, String governmentId, String fullname, int pageNumber) {
-		
+
 		List<String> programs = new ArrayList<String>();
 		for (Map programDegree : mapper.selectProgramDegree(campusId, sequence)) {
 			String program = (String) programDegree.get("program");
 			String degree = (String) programDegree.get("degree");
 			String title = (String) programDegree.get("title");
-			
+
 			programs.add(program + "/" + degree + "/" + title);
 		}
 
@@ -487,8 +527,6 @@ public class GenerateTranscript implements CommandLineRunner {
 		Map graduation = mapper.selectGraduationDate(campusId, sequence);
 		Date graduationDate = (graduation == null) ? null : (Date) graduation.get("GRADUATION_DATE");
 		String graduationDegree = (graduation == null) ? null : (String) graduation.get("SHORT_DESC");
-
-		SimpleDateFormat df = new SimpleDateFormat("MMMMM dd, yyyy");
 
 		String todaysDate = df.format(new Date());
 		// Build the table
@@ -563,15 +601,12 @@ public class GenerateTranscript implements CommandLineRunner {
 								.build()).build())
 						.build())
 				.addRow(Row.builder()
-						.add(ParagraphCell.builder()
-								.paragraph(ParagraphCell.Paragraph.builder()
-										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
-												.font(PDType1Font.TIMES_BOLD)
-												.text("Program/Degree/Curriculum:  ").color(Color.WHITE).build())
-										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
-												.text(programs.get(1)==null?"":programs.get(1)).build())
-										.build())
-								.build())
+						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
+										.text("Program/Degree/Curriculum:  ").color(Color.WHITE).build())
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
+										.text(programs.get(0) == null ? "" : programs.get(0)).build())
+								.build()).build())
 						.add(ParagraphCell.builder()
 								.paragraph(ParagraphCell.Paragraph.builder()
 										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
@@ -632,40 +667,45 @@ public class GenerateTranscript implements CommandLineRunner {
 		Table myTable = Table.builder()
 
 				.addColumnsOfWidth(290, 290)
-				.addRow(Row.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
-								"")
+				.addRow(Row.builder().add(ParagraphCell.builder()
+						.paragraph(ParagraphCell.Paragraph.builder()
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
+										.text("").build())
 								.build())
-						.build()).horizontalAlignment(HorizontalAlignment.CENTER).colSpan(2)
+						.horizontalAlignment(HorizontalAlignment.CENTER).colSpan(2)
 						.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE).build())
 						.build())
-				.addRow(Row.builder()
-						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
-										"")
-										.build())
-								.build()).horizontalAlignment(HorizontalAlignment.CENTER)
-								.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE).build())
-						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
-								"")
+				.addRow(Row.builder().add(ParagraphCell.builder()
+						.paragraph(ParagraphCell.Paragraph.builder()
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
+										.text("").build())
 								.build())
-						.build()).horizontalAlignment(HorizontalAlignment.CENTER)
-						.verticalAlignment(VerticalAlignment.TOP).borderWidthBottom(1).backgroundColor(Color.WHITE).build())
+						.horizontalAlignment(HorizontalAlignment.CENTER).verticalAlignment(VerticalAlignment.TOP)
+						.borderWidth(0).backgroundColor(Color.WHITE).build())
+						.add(ParagraphCell.builder()
+								.paragraph(ParagraphCell.Paragraph.builder()
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
+												.font(PDType1Font.TIMES_ROMAN).text("").build())
+										.build())
+								.horizontalAlignment(HorizontalAlignment.CENTER)
+								.verticalAlignment(VerticalAlignment.TOP).borderWidthBottom(1)
+								.backgroundColor(Color.WHITE).build())
 						.build())
-				.addRow(Row.builder()
-						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
-										"")
-										.build())
-								.build()).horizontalAlignment(HorizontalAlignment.CENTER)
-								.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE).build())
-						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
-						.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN).text(
-								"DATE PROCESSED")
+				.addRow(Row.builder().add(ParagraphCell.builder()
+						.paragraph(ParagraphCell.Paragraph.builder()
+								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
+										.text("").build())
 								.build())
-						.build()).horizontalAlignment(HorizontalAlignment.CENTER)
-						.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE).build())
+						.horizontalAlignment(HorizontalAlignment.CENTER).verticalAlignment(VerticalAlignment.TOP)
+						.borderWidth(0).backgroundColor(Color.WHITE).build())
+						.add(ParagraphCell.builder()
+								.paragraph(ParagraphCell.Paragraph.builder()
+										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
+												.font(PDType1Font.TIMES_ROMAN).text("DATE PROCESSED").build())
+										.build())
+								.horizontalAlignment(HorizontalAlignment.CENTER)
+								.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE)
+								.build())
 						.build())
 				.addRow(Row.builder().add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
 

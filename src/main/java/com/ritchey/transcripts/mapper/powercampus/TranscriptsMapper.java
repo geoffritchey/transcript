@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface TranscriptsMapper {
 
-    @Select("  SELECT CODE_PROGRAM.MEDIUM_DESC as program,  \r\n"
+    @Select("  SELECT distinct TRANSCRIPTDEGREE.GRADUATION_DATE, CODE_PROGRAM.MEDIUM_DESC as program,  \r\n"
     		+ "       CODE_DEGREE.MEDIUM_DESC as degree,  \r\n"
     		+ "       TRANSCRIPTDEGREE.FORMAL_TITLE as title  \r\n"
     		+ "FROM CODE_PROGRAM,  \r\n"
@@ -79,7 +79,8 @@ public interface TranscriptsMapper {
     		+ "order by ac.START_DATE, event_id ")
     List<Map> selectDetails(String campusId, String sequence, String getIfFinalGradeBlank); 
     
-    @Select("SELECT GPA\r\n"
+    //This query can return more than one result but it is ordered by term sort order to get the correct one as the top 1
+    @Select("SELECT top 1 GPA\r\n"
     		+ "FROM TRANSCRIPTGPA,\r\n"
     		+ "     CODE_ACATERM\r\n"
     		+ "WHERE PROGRAM =''\r\n"
@@ -140,7 +141,7 @@ public interface TranscriptsMapper {
     		+ "FROM TRANSCRIPTDEGREE "
     		+ "WHERE PEOPLE_CODE_ID = #{campusId} "
     		+ "GROUP BY TRANSCRIPT_SEQ")
-    List<Map> selectTranscriptSequences(String campusId);
+    List<String> selectTranscriptSequences(String campusId);
     
     @Select("SELECT COALESCE (CODE_TEST.SHORT_DESC, TESTSCORES.TEST_ID) AS TestID, COALESCE (CODE_TESTTYPE.SHORT_DESC,\r\n"
     		+ "                          TESTSCORES.TEST_TYPE) AS TestType, TESTSCORES.TEST_DATE, TESTSCORES.RAW_SCORE,\r\n"
