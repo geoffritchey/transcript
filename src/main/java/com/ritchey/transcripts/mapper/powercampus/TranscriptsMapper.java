@@ -9,6 +9,12 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface TranscriptsMapper {
 	
+	@Select("select People_code_id\r\n"
+			+ "from student\r\n"
+			+ "where last_year is not null and last_year <> ''\r\n"
+			+ "order by people_code_id")
+	List<String> selectStudents();
+	
 	@Select("SELECT ISNULL (ADDRESS.HOUSE_NUMBER,\r\n"
 			+ "               '') + ' ' + ISNULL (ADDRESS.ADDRESS_LINE_1,\r\n"
 			+ "                                   '') + ' ' + ISNULL (ADDRESS.ADDRESS_LINE_2,\r\n"
@@ -128,7 +134,7 @@ public interface TranscriptsMapper {
     		+ "ORDER BY CODE_ACATERM.SORT_ORDER DESC ")
     Double cumulativeGPA(String campusId, String sequence);
     
-    @Select("SELECT MEDIUM_DESC\r\n"
+    @Select("SELECT top 1 MEDIUM_DESC\r\n"
     		+ "FROM CODE_HONORS,\r\n"
     		+ "     TRANSCRIPTHONORS\r\n"
     		+ "WHERE CODE_HONORS.CODE_VALUE =TRANSCRIPTHONORS.HONORS\r\n"
@@ -148,7 +154,7 @@ public interface TranscriptsMapper {
     		+ "  AND TRANSCRIPTDEGREE.TRANSCRIPT_PRINT ='Y'\r\n"
     		+ "ORDER BY GRADUATION_DATE DESC,\r\n"
     		+ "         CODE_DEGREE.SHORT_DESC ASC")
-    Map selectGraduationDate(String campusId, String sequence);
+    List<Map> selectGraduationDate(String campusId, String sequence);
     
     
     @Select("SELECT o.ORG_NAME_1,\r\n"
