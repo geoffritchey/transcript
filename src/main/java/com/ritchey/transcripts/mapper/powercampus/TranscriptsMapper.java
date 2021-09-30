@@ -8,22 +8,52 @@ import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface TranscriptsMapper {
+	
+	@Select("SELECT ISNULL (ADDRESS.HOUSE_NUMBER,\r\n"
+			+ "               '') + ' ' + ISNULL (ADDRESS.ADDRESS_LINE_1,\r\n"
+			+ "                                   '') + ' ' + ISNULL (ADDRESS.ADDRESS_LINE_2,\r\n"
+			+ "                                                       '') + ' ' + ISNULL (ADDRESS.ADDRESS_LINE_3,\r\n"
+			+ "                                                                           '') + ' ' + ISNULL (ADDRESS.ADDRESS_LINE_4,\r\n"
+			+ "                                                                                               '')\r\n"
+			+ "FROM ORGANIZATION,\r\n"
+			+ "     ADDRESS\r\n"
+			+ "WHERE ORGANIZATION.ORG_CODE_ID =ADDRESS.PEOPLE_ORG_CODE_ID\r\n"
+			+ "  AND ORGANIZATION.PREFERRED_ADD =ADDRESS.ADDRESS_TYPE\r\n"
+			+ "  AND ORGANIZATION.ORG_CODE_ID =#{organizationId}")
+	String selectOrgStreetAddress(String organizationId);
+	
+	@Select("  SELECT CITY,\r\n"
+			+ "       STATE,\r\n"
+			+ "       ZIP_CODE\r\n"
+			+ "FROM ORGANIZATION,\r\n"
+			+ "     ADDRESS\r\n"
+			+ "WHERE ORGANIZATION.ORG_CODE_ID =ADDRESS.PEOPLE_ORG_CODE_ID\r\n"
+			+ "  AND ORGANIZATION.PREFERRED_ADD =ADDRESS.ADDRESS_TYPE\r\n"
+			+ "  AND ORGANIZATION.ORG_CODE_ID =#{organizationId}")
+	Map selectOrgCityStateZip(String organizationId);
+	
+	@Select("SELECT ORG_NAME_1,\r\n"
+			+ "       FICE_CODE\r\n"
+			+ "FROM ORGANIZATION\r\n"
+			+ "WHERE ORG_CODE_ID =#{organizationId}\r\n"
+			+ "")
+	String selectOrgName(String organizationId);
 
-    @Select("  SELECT distinct TRANSCRIPTDEGREE.GRADUATION_DATE, CODE_PROGRAM.MEDIUM_DESC as program,  \r\n"
-    		+ "       CODE_DEGREE.MEDIUM_DESC as degree,  \r\n"
-    		+ "       TRANSCRIPTDEGREE.FORMAL_TITLE as title  \r\n"
-    		+ "FROM CODE_PROGRAM,  \r\n"
-    		+ "     CODE_DEGREE,  \r\n"
+    @Select("SELECT CODE_PROGRAM.MEDIUM_DESC as program, \r\n"
+    		+ "       CODE_DEGREE.MEDIUM_DESC as degree, \r\n"
+    		+ "       TRANSCRIPTDEGREE.FORMAL_TITLE as title \r\n"
+    		+ "FROM CODE_PROGRAM,\r\n"
+    		+ "     CODE_DEGREE,\r\n"
     		+ "     TRANSCRIPTDEGREE\r\n"
-    		+ "WHERE TRANSCRIPTDEGREE.PROGRAM =CODE_PROGRAM.CODE_VALUE  \r\n"
-    		+ "  AND TRANSCRIPTDEGREE.DEGREE =CODE_DEGREE.CODE_VALUE  \r\n"
-    		+ "  AND TRANSCRIPTDEGREE.PEOPLE_CODE_ID = #{campusId} \r\n"
-    		+ "  AND TRANSCRIPTDEGREE.TRANSCRIPT_SEQ = #{sequence} \r\n"
-    		+ "  AND TRANSCRIPTDEGREE.TRANSCRIPT_PRINT ='Y'  \r\n"
-    		+ "ORDER BY TRANSCRIPTDEGREE.GRADUATION_DATE DESC,  \r\n"
-    		+ "         CODE_PROGRAM.MEDIUM_DESC ASC,  \r\n"
-    		+ "         CODE_DEGREE.MEDIUM_DESC ASC,  \r\n"
-    		+ "         TRANSCRIPTDEGREE.FORMAL_TITLE ASC ")
+    		+ "WHERE TRANSCRIPTDEGREE.PROGRAM =CODE_PROGRAM.CODE_VALUE\r\n"
+    		+ "  AND TRANSCRIPTDEGREE.DEGREE =CODE_DEGREE.CODE_VALUE\r\n"
+    		+ "  AND TRANSCRIPTDEGREE.PEOPLE_CODE_ID =#{campusId}\r\n"
+    		+ "  AND TRANSCRIPTDEGREE.TRANSCRIPT_SEQ =#{sequence}\r\n"
+    		+ "  AND TRANSCRIPTDEGREE.TRANSCRIPT_PRINT ='Y'\r\n"
+    		+ "ORDER BY TRANSCRIPTDEGREE.GRADUATION_DATE DESC,\r\n"
+    		+ "         CODE_PROGRAM.MEDIUM_DESC ASC,\r\n"
+    		+ "         CODE_DEGREE.MEDIUM_DESC ASC,\r\n"
+    		+ "         TRANSCRIPTDEGREE.FORMAL_TITLE ASC")
     List<Map> selectProgramDegree(String campusId, String sequence);
     
     @Select("SELECT TRANSCRIPTDETAIL.EVENT_ID, TRANSCRIPTDETAIL.ACADEMIC_YEAR, TRANSCRIPTDETAIL.ACADEMIC_TERM, TRANSCRIPTDETAIL.PEOPLE_CODE_ID, TRANSCRIPTDETAIL.EVENT_MED_NAME, TRANSCRIPTDETAIL.FINAL_GRADE,\r\n"

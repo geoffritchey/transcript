@@ -65,9 +65,11 @@ public class GenerateTranscript implements CommandLineRunner {
 	public void run(String... args) throws Exception {
 
 		LOG.info("EXECUTING : command line runner");
+		String orgCode = "O000000001";
 
 		// String campusId = "P000100013"; // jodi
-		String campusId = "P000001032";// Sarah Womble
+		//String campusId = "P000001032";// Sarah Womble
+		String campusId = "P000124143";// Daniel Trent
 
 		List<String> sequences = mapper.selectTranscriptSequences(campusId);
 		for (String sequence : sequences) {
@@ -76,6 +78,10 @@ public class GenerateTranscript implements CommandLineRunner {
 
 			try (PDDocument document = new PDDocument()) {
 				contentStreams = new ArrayList<PageEssentials>();
+				
+				String orgName = mapper.selectOrgName(orgCode);
+				String orgAddress = mapper.selectOrgStreetAddress(orgCode);
+				Map orgCityStateZip = mapper.selectOrgCityStateZip(orgCode);
 				
 				pageEssentials = new PageEssentials(document);
 				PDPage page = pageEssentials.getPage();
@@ -91,7 +97,7 @@ public class GenerateTranscript implements CommandLineRunner {
 				List<Map> testScores = mapper.selectTestScores(campusId);
 
 				printDetails(document, page, contentStream, campusId, governmentId, fullname, sequence, details,
-						testScores);
+						testScores, orgName, orgAddress, orgCityStateZip, orgCode);
 
 				int totalPages = contentStreams.size();
 				int pageNumber = 0;
@@ -122,7 +128,7 @@ public class GenerateTranscript implements CommandLineRunner {
 									.paragraph(ParagraphCell.Paragraph.builder()
 											.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
 													.font(PDType1Font.TIMES_ROMAN)
-													.text(pageNumber == totalPages ? ""
+													.text(pageNumber == totalPages ? "End of Transcript"
 															: "*** CONTINUED ON NEXT PAGE ***")
 													.build())
 											.build())
@@ -149,7 +155,8 @@ public class GenerateTranscript implements CommandLineRunner {
 	}
 
 	public void printDetails(PDDocument document, PDPage page, PDPageContentStream contentStream, String campusId,
-			String governmentId, String fullname, String sequence, List<Map> details, List<Map> testScores)
+			String governmentId, String fullname, String sequence, List<Map> details, List<Map> testScores
+			, String orgName, String orgStreet, Map orgCity, String orgCode)
 			throws IOException {
 
 		boolean endOfData = false;
@@ -208,7 +215,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			if (!pageHasHeader) {
 				// createNewPage
 				pageHasHeader = true;
-				printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname, pageNumber);
+				printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname, pageNumber, orgName, orgStreet, orgCity);
 				printFooter(document, page, contentStream, endOfData);
 				columnOutline(document, page, contentStream);
 
@@ -224,7 +231,7 @@ public class GenerateTranscript implements CommandLineRunner {
 
 				if ("TRAN".equals(creditType)) {
 					Map school = mapper.selectOtherSchools(campusId, academicYear, academicTerm, session, event,
-							eventSubType, section, sequence, "O000000001");
+							eventSubType, section, sequence, orgCode);
 					String otherSchool = (String) school.get("ORG_NAME_1");
 
 					gradesBuilder.addRow(Row.builder()
@@ -285,7 +292,7 @@ public class GenerateTranscript implements CommandLineRunner {
 					pageNumber++;
 					document.addPage(page);
 					contentStream = pageEssentials.getContentStream();
-					printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname, pageNumber);
+					printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname, pageNumber, orgName, orgStreet, orgCity);
 					printFooter(document, page, contentStream, endOfData);
 					columnOutline(document, page, contentStream);
 
@@ -438,6 +445,8 @@ public class GenerateTranscript implements CommandLineRunner {
 
 			}
 
+			String text = "End of Transcript";
+			text = "";//disable 'end of transcript' at bottom of column
 			gradesBuilder
 					.addRow(Row.builder().height(BODY_ROW_HEIGHT)
 							.add(TextCell.builder().fontSize(FONT_SIZE).colSpan(7).text("")
@@ -445,7 +454,7 @@ public class GenerateTranscript implements CommandLineRunner {
 							.build())
 					.addRow(Row
 							.builder().height(BODY_ROW_HEIGHT).add(TextCell.builder().fontSize(FONT_SIZE).colSpan(7)
-									.text("End of Transcript").horizontalAlignment(HorizontalAlignment.CENTER).build())
+									.text(text).horizontalAlignment(HorizontalAlignment.CENTER).build())
 							.build());
 
 		}
@@ -499,7 +508,7 @@ public class GenerateTranscript implements CommandLineRunner {
 	}
 
 	public void printHeader(PDDocument document, PDPage page, PDPageContentStream contentStream, String campusId,
-			String sequence, String governmentId, String fullname, int pageNumber) {
+			String sequence, String governmentId, String fullname, int pageNumber, String orgName, String orgAddress, Map orgCity) {
 
 		List<String> programs = new ArrayList<String>();
 		for (Map programDegree : mapper.selectProgramDegree(campusId, sequence)) {
@@ -543,7 +552,7 @@ public class GenerateTranscript implements CommandLineRunner {
 								.build()).horizontalAlignment(HorizontalAlignment.LEFT)
 								.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE)
 								.build())
-						.add(TextCell.builder().text("Lubbock Christian University").font(PDType1Font.TIMES_BOLD)
+						.add(TextCell.builder().text(orgName).font(PDType1Font.TIMES_BOLD)
 								.fontSize(16).horizontalAlignment(HorizontalAlignment.CENTER).borderWidth(0).build())
 						.add(TextCell.builder().text("").horizontalAlignment(HorizontalAlignment.RIGHT)
 								.verticalAlignment(VerticalAlignment.TOP).font(PDType1Font.TIMES_BOLD)
@@ -555,11 +564,11 @@ public class GenerateTranscript implements CommandLineRunner {
 								.fontSize(10).build())
 						.add(TextCell.builder().text("").build()).build())
 				.addRow(Row.builder().add(TextCell.builder().text("").build())
-						.add(TextCell.builder().text("5601 19th St").horizontalAlignment(HorizontalAlignment.CENTER)
+						.add(TextCell.builder().text(orgAddress).horizontalAlignment(HorizontalAlignment.CENTER)
 								.font(PDType1Font.TIMES_ROMAN).fontSize(10).build())
 						.add(TextCell.builder().text("").build()).build())
 				.addRow(Row.builder().add(TextCell.builder().text("").build())
-						.add(TextCell.builder().text("Lubbock, TX 79407-2099")
+						.add(TextCell.builder().text(orgCity.get("CITY")+", " + orgCity.get("STATE") + "  " + orgCity.get("ZIP_CODE"))
 								.horizontalAlignment(HorizontalAlignment.CENTER).font(PDType1Font.TIMES_ROMAN)
 								.fontSize(10).build())
 						.add(TextCell.builder().text("").build()).build())
@@ -605,7 +614,7 @@ public class GenerateTranscript implements CommandLineRunner {
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Program/Degree/Curriculum:  ").color(Color.WHITE).build())
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
-										.text(programs.get(0) == null ? "" : programs.get(0)).build())
+										.text(programs.size() == 1? "" : programs.get(1)).build())
 								.build()).build())
 						.add(ParagraphCell.builder()
 								.paragraph(ParagraphCell.Paragraph.builder()
