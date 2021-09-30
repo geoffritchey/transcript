@@ -246,7 +246,7 @@ public class GenerateTranscript implements CommandLineRunner {
 				if ("TRAN".equals(creditType)) {
 					Map school = mapper.selectOtherSchools(campusId, academicYear, academicTerm, session, event,
 							eventSubType, section, sequence, orgCode);
-					String otherSchool = (String) school.get("ORG_NAME_1");
+					String otherSchool = school==null?"":(String) school.get("ORG_NAME_1");
 
 					gradesBuilder.addRow(Row.builder()
 							.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1)
