@@ -71,7 +71,8 @@ public class GenerateTranscript implements CommandLineRunner {
 
 		// String campusId = "P000100013"; // jodi
 		//String campusId = "P000001032";// Sarah Womble
-		String campusId = "P000124143";// Daniel Trent
+		//String campusId = "P000124143";// Daniel Trent
+		String campusId = "P001161065";// Laurie Needham
 
 		List<String> sequences = mapper.selectTranscriptSequences(campusId);
 		for (String sequence : sequences) {
@@ -521,14 +522,15 @@ public class GenerateTranscript implements CommandLineRunner {
 			programs.add(program + "/" + degree + "/" + title);
 		}
 
-		String degreeTitle = "";
-		String degreeOrganization = "";
-		Map previousInstitution = mapper.selectDegree(campusId, sequence);
-		if (previousInstitution != null) {
-			degreeTitle = (String) previousInstitution.get("SHORT_DESC");
-			degreeTitle = (degreeTitle == null) ? "" : degreeTitle;
-			degreeOrganization = (String) previousInstitution.get("ORG_NAME_1");
-			degreeOrganization = (degreeOrganization == null) ? "" : degreeOrganization;
+
+		List<Map> previousInstitutions = mapper.selectDegree(campusId, sequence);
+		List<String> previous = new ArrayList<String>();
+		for (Map previousInstitution : previousInstitutions) {
+			previous.add((String) previousInstitution.get("ORG_NAME_1") + 
+					((String) previousInstitution.get("SHORT_DESC") == null?"":", " + (String) previousInstitution.get("SHORT_DESC")));
+		}
+		if (previous.size() == 0) {
+			previous.add("");
 		}
 
 		Double cumulativeGpa = mapper.cumulativeGPA(campusId, sequence);
@@ -599,7 +601,7 @@ public class GenerateTranscript implements CommandLineRunner {
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Program/Degree/Curriculum:  ").build())
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
-										.text(programs.get(0)).build())
+										.text(programs.size() < 1?"":programs.get(0)).build())
 								.build()).build())
 						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
@@ -616,7 +618,7 @@ public class GenerateTranscript implements CommandLineRunner {
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Program/Degree/Curriculum:  ").color(Color.WHITE).build())
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
-										.text(programs.size() == 1? "" : programs.get(1)).build())
+										.text(programs.size() < 2? "" : programs.get(1)).build())
 								.build()).build())
 						.add(ParagraphCell.builder()
 								.paragraph(ParagraphCell.Paragraph.builder()
@@ -632,7 +634,7 @@ public class GenerateTranscript implements CommandLineRunner {
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Previous Institution:  ").build())
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
-										.text(degreeOrganization + ", " + degreeTitle).build())
+										.text(previous.size() < 1?"":previous.get(0)).build())
 								.build()).build())
 						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
@@ -645,9 +647,9 @@ public class GenerateTranscript implements CommandLineRunner {
 						.add(ParagraphCell.builder()
 								.paragraph(ParagraphCell.Paragraph.builder()
 										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
-												.font(PDType1Font.TIMES_BOLD).text("").build())
+												.font(PDType1Font.TIMES_BOLD).text("                                      ").build())
 										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
-												.font(PDType1Font.TIMES_ROMAN).text("").build())
+												.font(PDType1Font.TIMES_ROMAN).text(previous.size() < 2?"":previous.get(1)).build())
 										.build())
 								.build())
 						.add(ParagraphCell.builder().paragraph(ParagraphCell.Paragraph.builder()

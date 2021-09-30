@@ -165,7 +165,7 @@ public interface TranscriptsMapper {
     		+ "  AND t.TRANSCRIPT_PRINT ='Y'\r\n"
     		+ "  AND e.END_DATE IS NOT NULL\r\n"
     		+ "ORDER BY e.END_DATE DESC")
-    Map selectDegree(String campusId, String sequence);
+    List<Map> selectDegree(String campusId, String sequence);
     
     @Select("SELECT TRANSCRIPT_SEQ "
     		+ "FROM TRANSCRIPTDEGREE "
