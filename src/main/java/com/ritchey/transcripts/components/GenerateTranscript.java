@@ -58,6 +58,8 @@ public class GenerateTranscript implements CommandLineRunner {
 	private static final int FONT_SIZE = 7;
 	private static final float HEADER_FONT_SIZE = 8;
 	private static final float BODY_ROW_HEIGHT = 10f;
+	
+	private static final float OFFSET = 15f;
 
 	SimpleDateFormat df = new SimpleDateFormat("MMMMM dd, yyyy");
 
@@ -273,7 +275,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			}
 
 			if (endOfColumn) {
-				float startX = (column == 0) ? 20f : 300f;
+				float startX = (column == 0) ? 20f + OFFSET : 300f + OFFSET;
 				Table grades = gradesBuilder.build();
 				// Set up the drawer
 				TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(startX)
@@ -314,7 +316,7 @@ public class GenerateTranscript implements CommandLineRunner {
 
 				Table grades = gradesBuilder.build();
 
-				float startX = (column == 0) ? 20f : 300f;
+				float startX = (column == 0) ? 20f + OFFSET: 300f + OFFSET;
 
 				// Set up the drawer
 				TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(startX)
@@ -493,14 +495,14 @@ public class GenerateTranscript implements CommandLineRunner {
 				.build());
 
 		// Set up the drawer
-		TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(20f)
+		TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(20f + OFFSET)
 				.startY(page.getMediaBox().getUpperRightY() - 175f).table(gradesBuilder.build()).build();
 
 		// And go for it!
 		tableDrawer.draw();
 
 		// Set up the drawer
-		TableDrawer tableDrawer2 = TableDrawer.builder().contentStream(contentStream).page(page).startX(300f)
+		TableDrawer tableDrawer2 = TableDrawer.builder().contentStream(contentStream).page(page).startX(300f + OFFSET)
 				.startY(page.getMediaBox().getUpperRightY() - 175f).table(gradesBuilder.build()).build();
 
 		// And go for it!
