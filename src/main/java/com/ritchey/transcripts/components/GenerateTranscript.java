@@ -3,17 +3,17 @@ package com.ritchey.transcripts.components;
 import java.awt.Color;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.slf4j.Logger;
@@ -73,11 +73,33 @@ public class GenerateTranscript implements CommandLineRunner {
 		// String campusId = "P000001032";// Sarah Womble
 		// String campusId = "P000124143";// Daniel Trent
 		//String campusId = "P001161065";// Laurie Needham
-		String[] campusIds = {"P000010596"};
+		
+		boolean all = false;
+		List<String> campusIds = null;
+		if (args.length > 0) {
+			
+			campusIds = new ArrayList<String>();
+			for (String a: args) {
+				LOG.debug("ARGS0: " + a.toString());
+				if ("--all".equalsIgnoreCase(a)) {
+					all = true;
+				}
+				else {
+					campusIds.add(a);
+				}
+			}
+		}
+		if (all || campusIds == null) {
+			campusIds = mapper.selectStudents();
+			if (!all) {
+				campusIds = Arrays.asList(campusIds.get(0));
+			}
+		}
+
+		
 
 		int count = 0;
-		for (String campusId : //campusIds) {
-				mapper.selectStudents()) {
+		for (String campusId : campusIds) {
 			LOG.debug("campus id = " + campusId + "   " + count);
 			count++;
 			LOG.debug(campusId);
@@ -192,20 +214,26 @@ public class GenerateTranscript implements CommandLineRunner {
 				endOfData = true;
 			}
 			String lastYearTerm = null;
+			String lastSchool = "";
 			if (i > 0) {
 				Map lastDetail = details.get(i - 1);
 				lastYearTerm = (String) lastDetail.get("ACADEMIC_TERM") + " "
 						+ (String) lastDetail.get("ACADEMIC_YEAR");
+				lastSchool = (String) lastDetail.get("ORG_CODE_ID");
 			}
 
 			String academicYear = (String) detail.get("ACADEMIC_YEAR");
 			String academicTerm = (String) detail.get("ACADEMIC_TERM");
 			String academicTermYear = academicTerm + " " + academicYear;
+			String school = (String) detail.get("ORG_CODE_ID");
+			
+
 
 			List<Map> awards = mapper.selectAwards(campusId, sequence, "TERMSTND", "Y", academicYear, academicTerm);
 
 			boolean printSummary = (nextYearTerm == null) || !academicTermYear.equals(nextYearTerm);
 			boolean printNewTerm = (i == 0) || !academicTermYear.equals(lastYearTerm);
+			boolean printSchoolChange = !school.equals(orgCode) && ((i == 0) ||  !school.equals(lastSchool) || printNewTerm);
 
 			String event = (String) detail.get("EVENT_ID");
 			String eventName = (String) detail.get("EVENT_MED_NAME");
@@ -242,18 +270,17 @@ public class GenerateTranscript implements CommandLineRunner {
 								.borderWidthRight(1).colSpan(7).text(academicTermYear)
 								.horizontalAlignment(HorizontalAlignment.CENTER).build())
 						.build());
+			}
+			if (printSchoolChange) {
+				Map schoolDetail = mapper.selectOtherSchools(campusId, academicYear, academicTerm, session, event,
+						eventSubType, section, sequence, orgCode);
+				String otherSchool = school==null?"":(String) schoolDetail.get("ORG_NAME_1");
 
-				if ("TRAN".equals(creditType)) {
-					Map school = mapper.selectOtherSchools(campusId, academicYear, academicTerm, session, event,
-							eventSubType, section, sequence, orgCode);
-					String otherSchool = school==null?"":(String) school.get("ORG_NAME_1");
-
-					gradesBuilder.addRow(Row.builder()
-							.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1)
-									.borderWidthRight(1).colSpan(7).text(otherSchool)
-									.horizontalAlignment(HorizontalAlignment.LEFT).build())
-							.build());
-				}
+				gradesBuilder.addRow(Row.builder()
+						.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1)
+								.borderWidthRight(1).colSpan(7).text("   " + otherSchool)
+								.horizontalAlignment(HorizontalAlignment.LEFT).build())
+						.build());
 			}
 
 			// BigDecimal attempt, BigDecimal earned, BigDecimal total, BigDecimal credit,

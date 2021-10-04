@@ -112,7 +112,7 @@ public interface TranscriptsMapper {
     		+ "  AND (TRANSCRIPTDETAIL.ABT_JOIN <> 'Y' + 'N') \r\n"
     		+ "  AND (TRANSCRIPTDETAIL.ABT_JOIN <> 'UNOFFICIAL') \r\n"
     		+ "  AND (TRANSCRIPTDETAIL.FINAL_GRADE <> ''  OR (#{getIfFinalGradeBlank} = 'Y' AND TRANSCRIPTDETAIL.FINAL_GRADE = ''))"
-    		+ "order by ac.START_DATE, event_id ")
+    		+ "order by academic_year, CODE_ACATERM.SORT_ORDER, ORG_CODE_ID, event_id ")
     List<Map> selectDetails(String campusId, String sequence, String getIfFinalGradeBlank); 
     
     //This query can return more than one result but it is ordered by term sort order to get the correct one as the top 1
