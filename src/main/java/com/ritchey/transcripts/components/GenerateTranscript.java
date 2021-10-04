@@ -60,6 +60,14 @@ public class GenerateTranscript implements CommandLineRunner {
 	private static final float BODY_ROW_HEIGHT = 10f;
 
 	private static final float OFFSET = 15f;
+	
+	static final int END_OF_COLUMN_INDEX = 0;
+	static final int COLUMN_INDEX = 1;
+	static final int GRADES_BUILDER_INDEX = 2;
+	static final int PAGE_NUMBER_INDEX = 3;
+	static final int PAGE_INDEX = 4;
+	static final int PAGE_ESSENTIALS_INDEX = 5;
+	static final int STREAM_INDEX = 6;
 
 	SimpleDateFormat df = new SimpleDateFormat("MMMMM dd, yyyy");
 
@@ -105,6 +113,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			LOG.debug(campusId);
 			List<String> sequences = mapper.selectTranscriptSequences(campusId);
 			for (String sequence : sequences) {
+
 				LOG.debug("sequence = " + sequence);
 				String outputFileName = String.format("%s-%s.pdf", campusId, sequence);
 
@@ -119,6 +128,8 @@ public class GenerateTranscript implements CommandLineRunner {
 					String orgName = mapper.selectOrgName(orgCode);
 					String orgAddress = mapper.selectOrgStreetAddress(orgCode);
 					Map orgCityStateZip = mapper.selectOrgCityStateZip(orgCode);
+					
+
 
 					pageEssentials = new PageEssentials(document);
 					PDPage page = pageEssentials.getPage();
@@ -128,11 +139,12 @@ public class GenerateTranscript implements CommandLineRunner {
 					String governmentId = (String) details.get(0).get("GOVERNMENT_ID");
 					governmentId = governmentId==null?"":governmentId.replaceFirst("(...)(..)(....)", "$1-$2-$3");
 					String fullname = (String) details.get(0).get("TRANSCRIPTHEADER_fullName");
+					
+					HeaderInfo header = new HeaderInfo(campusId, sequence, governmentId, fullname, orgName, orgAddress, orgCityStateZip);
 
 					List<Map> testScores = mapper.selectTestScores(campusId);
 
-					printDetails(document, page, contentStream, campusId, governmentId, fullname, sequence, details,
-							testScores, orgName, orgAddress, orgCityStateZip, orgCode);
+					printDetails(document, page, contentStream, header, details, testScores, orgCode);
 
 					int totalPages = contentStreams.size();
 					int pageNumber = 0;
@@ -190,9 +202,9 @@ public class GenerateTranscript implements CommandLineRunner {
 
 	}
 
-	public void printDetails(PDDocument document, PDPage page, PDPageContentStream contentStream, String campusId,
-			String governmentId, String fullname, String sequence, List<Map> details, List<Map> testScores,
-			String orgName, String orgStreet, Map orgCity, String orgCode) throws IOException {
+	public void printDetails(PDDocument document, PDPage page, PDPageContentStream contentStream, HeaderInfo header,
+			List<Map> details, List<Map> testScores,
+			String orgCode) throws IOException {
 
 		boolean endOfData = false;
 		boolean endOfColumn = false;
@@ -229,7 +241,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			
 
 
-			List<Map> awards = mapper.selectAwards(campusId, sequence, "TERMSTND", "Y", academicYear, academicTerm);
+			List<Map> awards = mapper.selectAwards(header.campusId, header.sequence, "TERMSTND", "Y", academicYear, academicTerm);
 
 			boolean printSummary = (nextYearTerm == null) || !academicTermYear.equals(nextYearTerm);
 			boolean printNewTerm = (i == 0) || !academicTermYear.equals(lastYearTerm);
@@ -256,8 +268,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			if (!pageHasHeader) {
 				// createNewPage
 				pageHasHeader = true;
-				printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname, pageNumber,
-						orgName, orgStreet, orgCity);
+				printHeader(document, page, contentStream, header);
 				printFooter(document, page, contentStream, endOfData);
 				columnOutline(document, page, contentStream);
 
@@ -271,9 +282,22 @@ public class GenerateTranscript implements CommandLineRunner {
 								.horizontalAlignment(HorizontalAlignment.CENTER).build())
 						.build());
 			}
+			
+			Object[] ret = checkEndOfColumn(page, document, contentStream 
+					, gradesBuilder, endOfColumn, column
+					, pageNumber,  endOfData, header);
+			
+			endOfColumn = (Boolean) ret[END_OF_COLUMN_INDEX];
+			column = (Integer) ret[COLUMN_INDEX];
+			gradesBuilder = (TableBuilder) ret[GRADES_BUILDER_INDEX];
+			pageNumber = (Integer) ret[PAGE_NUMBER_INDEX];
+			page = (PDPage) ret[PAGE_INDEX];
+			pageEssentials = (PageEssentials) ret[PAGE_ESSENTIALS_INDEX];
+			contentStream = (PDPageContentStream) ret[STREAM_INDEX];
+			
 			if (printSchoolChange) {
-				Map schoolDetail = mapper.selectOtherSchools(campusId, academicYear, academicTerm, session, event,
-						eventSubType, section, sequence, orgCode);
+				Map schoolDetail = mapper.selectOtherSchools(header.campusId, academicYear, academicTerm, session, event,
+						eventSubType, section, header.sequence, orgCode);
 				String otherSchool = school==null?"":(String) schoolDetail.get("ORG_NAME_1");
 
 				gradesBuilder.addRow(Row.builder()
@@ -282,6 +306,19 @@ public class GenerateTranscript implements CommandLineRunner {
 								.horizontalAlignment(HorizontalAlignment.LEFT).build())
 						.build());
 			}
+			
+			ret = checkEndOfColumn(page, document, contentStream 
+					, gradesBuilder, endOfColumn, column
+					, pageNumber,  endOfData, header);
+			
+			endOfColumn = (Boolean) ret[END_OF_COLUMN_INDEX];
+			column = (Integer) ret[COLUMN_INDEX];
+			gradesBuilder = (TableBuilder) ret[GRADES_BUILDER_INDEX];
+			pageNumber = (Integer) ret[PAGE_NUMBER_INDEX];
+			page = (PDPage) ret[PAGE_INDEX];
+			pageEssentials = (PageEssentials) ret[PAGE_ESSENTIALS_INDEX];
+			contentStream = (PDPageContentStream) ret[STREAM_INDEX];
+			
 
 			// BigDecimal attempt, BigDecimal earned, BigDecimal total, BigDecimal credit,
 			// BigDecimal quality, BigDecimal gpa)
@@ -304,48 +341,19 @@ public class GenerateTranscript implements CommandLineRunner {
 							.borderWidthRight(1).fontSize(FONT_SIZE).build())
 					.build());
 
-			try {
-				float height = gradesBuilder.build().getHeight();
-				if (height > 445f) {
-					endOfColumn = true;
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
 
-			if (endOfColumn) {
-				float startX = (column == 0) ? 20f + OFFSET : 300f + OFFSET;
-				Table grades = gradesBuilder.build();
-				// Set up the drawer
-				TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(startX)
-						.startY(page.getMediaBox().getUpperRightY() - 175f).table(grades).build();
-
-				// And go for it!
-				tableDrawer.draw();
-				// gradesBuilder = Table.builder();
-
-				if (column == 1) {
-					// contentStream.close();
-					contentStreams.add(pageEssentials);
-					column = 0;
-					pageEssentials = new PageEssentials(document);
-					page = pageEssentials.getPage();
-					pageNumber++;
-					document.addPage(page);
-					contentStream = pageEssentials.getContentStream();
-					printHeader(document, page, contentStream, campusId, sequence, governmentId, fullname, pageNumber,
-							orgName, orgStreet, orgCity);
-					printFooter(document, page, contentStream, endOfData);
-					columnOutline(document, page, contentStream);
-
-				} else
-					column = 1;
-
-				endOfColumn = false;
-
-				gradesBuilder = createTable();
-
-			}
+			ret = checkEndOfColumn(page, document, contentStream 
+					, gradesBuilder, endOfColumn, column
+					, pageNumber,  endOfData, header);
+			
+			endOfColumn = (Boolean) ret[END_OF_COLUMN_INDEX];
+			column = (Integer) ret[COLUMN_INDEX];
+			gradesBuilder = (TableBuilder) ret[GRADES_BUILDER_INDEX];
+			pageNumber = (Integer) ret[PAGE_NUMBER_INDEX];
+			page = (PDPage) ret[PAGE_INDEX];
+			pageEssentials = (PageEssentials) ret[PAGE_ESSENTIALS_INDEX];
+			contentStream = (PDPageContentStream) ret[STREAM_INDEX];
+			
 
 			if (printSummary) {
 				printSummary(gradesBuilder, term, cum, awards, endOfData, testScores);
@@ -371,6 +379,53 @@ public class GenerateTranscript implements CommandLineRunner {
 
 		}
 
+	}
+	
+	public Object[] checkEndOfColumn(PDPage page, PDDocument document, PDPageContentStream contentStream 
+			, TableBuilder gradesBuilder, boolean endOfColumn, int column
+			, int pageNumber,  boolean endOfData, HeaderInfo header) throws IOException {
+		try {
+			float height = gradesBuilder.build().getHeight();
+			if (height > 445f) {
+				endOfColumn = true;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		if (endOfColumn) {
+			float startX = (column == 0) ? 20f + OFFSET : 300f + OFFSET;
+			Table grades = gradesBuilder.build();
+			// Set up the drawer
+			TableDrawer tableDrawer = TableDrawer.builder().contentStream(contentStream).page(page).startX(startX)
+					.startY(page.getMediaBox().getUpperRightY() - 175f).table(grades).build();
+
+			// And go for it!
+			tableDrawer.draw();
+			// gradesBuilder = Table.builder();
+
+			if (column == 1) {
+				// contentStream.close();
+				contentStreams.add(pageEssentials);
+				column = 0;
+				pageEssentials = new PageEssentials(document);
+				page = pageEssentials.getPage();
+				pageNumber++;
+				document.addPage(page);
+				contentStream = pageEssentials.getContentStream();
+				printHeader(document, page, contentStream, header);
+				printFooter(document, page, contentStream, endOfData);
+				columnOutline(document, page, contentStream);
+
+			} else
+				column = 1;
+
+			endOfColumn = false;
+
+			gradesBuilder = createTable();
+
+		}
+		return (Object[]) new Object[] {endOfColumn, column, gradesBuilder, pageNumber, page, pageEssentials, contentStream};
 	}
 
 	public TableBuilder createTable() {
@@ -547,12 +602,10 @@ public class GenerateTranscript implements CommandLineRunner {
 		tableDrawer2.draw();
 	}
 
-	public void printHeader(PDDocument document, PDPage page, PDPageContentStream contentStream, String campusId,
-			String sequence, String governmentId, String fullname, int pageNumber, String orgName, String orgAddress,
-			Map orgCity) {
+	public void printHeader(PDDocument document, PDPage page, PDPageContentStream contentStream, HeaderInfo header) {
 
 		List<String> programs = new ArrayList<String>();
-		for (Map programDegree : mapper.selectProgramDegree(campusId, sequence)) {
+		for (Map programDegree : mapper.selectProgramDegree(header.campusId, header.sequence)) {
 			String program = (String) programDegree.get("program");
 			String degree = (String) programDegree.get("degree");
 			String title = (String) programDegree.get("title");
@@ -560,7 +613,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			programs.add(program + "/" + degree + "/" + title);
 		}
 
-		List<Map> previousInstitutions = mapper.selectDegree(campusId, sequence);
+		List<Map> previousInstitutions = mapper.selectDegree(header.campusId, header.sequence);
 		List<String> previous = new ArrayList<String>();
 		for (Map previousInstitution : previousInstitutions) {
 			previous.add((String) previousInstitution.get("ORG_NAME_1")
@@ -571,11 +624,11 @@ public class GenerateTranscript implements CommandLineRunner {
 			previous.add("");
 		}
 
-		Double cumulativeGpa = mapper.cumulativeGPA(campusId, sequence);
+		Double cumulativeGpa = mapper.cumulativeGPA(header.campusId, header.sequence);
 
-		String honors = mapper.selectHonors(campusId, sequence);
+		String honors = mapper.selectHonors(header.campusId, header.sequence);
 
-		List<Map> graduations = mapper.selectGraduationDate(campusId, sequence);
+		List<Map> graduations = mapper.selectGraduationDate(header.campusId, header.sequence);
 		List<String> strGraduations = new ArrayList<String>();
 		for (Map graduation: graduations) {
 			strGraduations.add(((graduation == null) ? null : (String) graduation.get("SHORT_DESC") ) + "   " + 
@@ -600,7 +653,7 @@ public class GenerateTranscript implements CommandLineRunner {
 								.build()).horizontalAlignment(HorizontalAlignment.LEFT)
 								.verticalAlignment(VerticalAlignment.TOP).borderWidth(0).backgroundColor(Color.WHITE)
 								.build())
-						.add(TextCell.builder().text(orgName).font(PDType1Font.TIMES_BOLD).fontSize(16)
+						.add(TextCell.builder().text(header.orgName).font(PDType1Font.TIMES_BOLD).fontSize(16)
 								.horizontalAlignment(HorizontalAlignment.CENTER).borderWidth(0).build())
 						.add(TextCell.builder().text("").horizontalAlignment(HorizontalAlignment.RIGHT)
 								.verticalAlignment(VerticalAlignment.TOP).font(PDType1Font.TIMES_BOLD)
@@ -612,11 +665,11 @@ public class GenerateTranscript implements CommandLineRunner {
 								.fontSize(10).build())
 						.add(TextCell.builder().text("").build()).build())
 				.addRow(Row.builder().add(TextCell.builder().text("").build())
-						.add(TextCell.builder().text(orgAddress).horizontalAlignment(HorizontalAlignment.CENTER)
+						.add(TextCell.builder().text(header.orgAddress).horizontalAlignment(HorizontalAlignment.CENTER)
 								.font(PDType1Font.TIMES_ROMAN).fontSize(10).build())
 						.add(TextCell.builder().text("").build()).build())
 				.addRow(Row.builder().add(TextCell.builder().text("").build()).add(TextCell.builder()
-						.text(orgCity.get("CITY") + ", " + orgCity.get("STATE") + "  " + orgCity.get("ZIP_CODE"))
+						.text(header.orgCity.get("CITY") + ", " + header.orgCity.get("STATE") + "  " + header.orgCity.get("ZIP_CODE"))
 						.horizontalAlignment(HorizontalAlignment.CENTER).font(PDType1Font.TIMES_ROMAN).fontSize(10)
 						.build()).add(TextCell.builder().text("").build()).build())
 				.build();
@@ -628,7 +681,7 @@ public class GenerateTranscript implements CommandLineRunner {
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_BOLD)
 										.text("Name:  ").build())
 								.append(StyledText.builder().fontSize(HEADER_FONT_SIZE).font(PDType1Font.TIMES_ROMAN)
-										.text("" + fullname).build())
+										.text("" + header.fullname).build())
 								.build())
 						.build())
 						.add(ParagraphCell.builder()
@@ -636,7 +689,7 @@ public class GenerateTranscript implements CommandLineRunner {
 										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
 												.font(PDType1Font.TIMES_BOLD).text("Id:  ").build())
 										.append(StyledText.builder().fontSize(HEADER_FONT_SIZE)
-												.font(PDType1Font.TIMES_ROMAN).text("" + governmentId).build())
+												.font(PDType1Font.TIMES_ROMAN).text("" + header.governmentId).build())
 										.build())
 								.build())
 						.build()).build();
