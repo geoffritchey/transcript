@@ -213,6 +213,7 @@ public class GenerateTranscript implements CommandLineRunner {
 		int pageNumber = 1;
 
 		int size = details.size();
+		TermHeader termHeader = null;
 
 		boolean pageHasHeader = false;
 		for (int i = 0; i < details.size(); i++) {
@@ -276,40 +277,25 @@ public class GenerateTranscript implements CommandLineRunner {
 			}
 
 			if (printNewTerm) {
-				gradesBuilder.addRow(Row.builder()
-						.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1)
-								.borderWidthRight(1).colSpan(7).text(academicTermYear)
-								.horizontalAlignment(HorizontalAlignment.CENTER).build())
-						.build());
+				termHeader = new TermHeader(academicTermYear);
 			}
 			
-			Object[] ret = checkEndOfColumn(page, document, contentStream 
-					, gradesBuilder, endOfColumn, column
-					, pageNumber,  endOfData, header);
-			
-			endOfColumn = (Boolean) ret[END_OF_COLUMN_INDEX];
-			column = (Integer) ret[COLUMN_INDEX];
-			gradesBuilder = (TableBuilder) ret[GRADES_BUILDER_INDEX];
-			pageNumber = (Integer) ret[PAGE_NUMBER_INDEX];
-			page = (PDPage) ret[PAGE_INDEX];
-			pageEssentials = (PageEssentials) ret[PAGE_ESSENTIALS_INDEX];
-			contentStream = (PDPageContentStream) ret[STREAM_INDEX];
+			Object[] ret = null;
 			
 			if (printSchoolChange) {
 				Map schoolDetail = mapper.selectOtherSchools(header.campusId, academicYear, academicTerm, session, event,
 						eventSubType, section, header.sequence, orgCode);
 				String otherSchool = school==null?"":(String) schoolDetail.get("ORG_NAME_1");
-
-				gradesBuilder.addRow(Row.builder()
-						.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1)
-								.borderWidthRight(1).colSpan(7).text("   " + otherSchool)
-								.horizontalAlignment(HorizontalAlignment.LEFT).build())
-						.build());
+				termHeader.setOtherSchool(otherSchool);
 			}
 			
 			ret = checkEndOfColumn(page, document, contentStream 
 					, gradesBuilder, endOfColumn, column
-					, pageNumber,  endOfData, header);
+					, pageNumber,  endOfData, header, termHeader);
+			
+			if (printNewTerm)
+				gradesBuilder = printTermHeader(termHeader, gradesBuilder);
+			
 			
 			endOfColumn = (Boolean) ret[END_OF_COLUMN_INDEX];
 			column = (Integer) ret[COLUMN_INDEX];
@@ -344,7 +330,7 @@ public class GenerateTranscript implements CommandLineRunner {
 
 			ret = checkEndOfColumn(page, document, contentStream 
 					, gradesBuilder, endOfColumn, column
-					, pageNumber,  endOfData, header);
+					, pageNumber,  endOfData, header, termHeader);
 			
 			endOfColumn = (Boolean) ret[END_OF_COLUMN_INDEX];
 			column = (Integer) ret[COLUMN_INDEX];
@@ -381,9 +367,28 @@ public class GenerateTranscript implements CommandLineRunner {
 
 	}
 	
+	public TableBuilder printTermHeader(TermHeader termHeader, TableBuilder gradesBuilder) {
+		if (termHeader == null) {
+			return gradesBuilder;
+		}
+		gradesBuilder.addRow(Row.builder()
+				.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1)
+						.borderWidthRight(1).colSpan(7).text(termHeader.yearTerm)
+						.horizontalAlignment(HorizontalAlignment.CENTER).build())
+				.build());
+		if (termHeader.getOtherSchool() != null) {
+			gradesBuilder.addRow(Row.builder()
+					.add(TextCell.builder().font(PDType1Font.TIMES_BOLD).fontSize(FONT_SIZE).borderWidthLeft(1)
+							.borderWidthRight(1).colSpan(7).text("   " + termHeader.getOtherSchool())
+							.horizontalAlignment(HorizontalAlignment.LEFT).build())
+					.build());
+		}
+		return gradesBuilder;
+	}
+	
 	public Object[] checkEndOfColumn(PDPage page, PDDocument document, PDPageContentStream contentStream 
 			, TableBuilder gradesBuilder, boolean endOfColumn, int column
-			, int pageNumber,  boolean endOfData, HeaderInfo header) throws IOException {
+			, int pageNumber,  boolean endOfData, HeaderInfo header, TermHeader termHeader) throws IOException {
 		try {
 			float height = gradesBuilder.build().getHeight();
 			if (height > 445f) {
@@ -423,6 +428,7 @@ public class GenerateTranscript implements CommandLineRunner {
 			endOfColumn = false;
 
 			gradesBuilder = createTable();
+			gradesBuilder = printTermHeader(termHeader, gradesBuilder);
 
 		}
 		return (Object[]) new Object[] {endOfColumn, column, gradesBuilder, pageNumber, page, pageEssentials, contentStream};
